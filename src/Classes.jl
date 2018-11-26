@@ -50,9 +50,6 @@ macro class(name_expr, fields_expr)
         error("@class $name_expr: badly formatted @class expression: $fields_expr")
     end
 
-    # @info "name_expr: $name_expr"
-    # @info "fields: $fields"
-
     if ! @capture(name_expr, cls_ <: supercls_)
         supercls = :Class
     end
@@ -97,9 +94,6 @@ macro method(funcdef)
     name = parts[:name]
     args = parts[:args]
     whereparams = parts[:whereparams]
-    
-    # @info "funcdef: $funcdef"
-    # @info "where: $whereparams"
 
     if ! @capture(args[1], arg1_::T_)
         error("First argument of method $name must be explicitly typed")
