@@ -45,8 +45,20 @@ function classof(::Type{T}) where {T <: _Class_}
     return T
 end
 
-macro class(name_expr, block)
-    if ! @capture(block, begin exprs__ end)
+macro class(elements...)
+    count = length(elements)
+
+    if count == 2
+        (name_expr, definition) = elements
+        mutable = false
+    elseif count == 3
+        (name_expr, definition) = elements[2:end]
+        mutable = true
+    else
+        error("Unrecognized form for @class definition: $elements")
+    end
+   
+    if ! @capture(definition, begin exprs__ end)
         error("@class $name_expr: badly formatted @class expression: $exprs")
     end
 
@@ -74,12 +86,19 @@ macro class(name_expr, block)
     abs_class = Symbol("_$(cls)_")
     abs_super = Symbol("_$(supercls)_")
 
-    result = quote
-        abstract type $abs_class <: $abs_super end
+    struct_def = :(
         struct $cls <: $abs_class
             $(all_fields...)
             $(ctors...)
         end
+    )
+
+    # toggles definition between mutable and immutable struct
+    struct_def.args[1] = mutable
+
+    result = quote
+        abstract type $abs_class <: $abs_super end
+        $struct_def
         
         Classes.superclass(::Type{$cls}) = $supercls
         Classes.issubclass(::Type{$cls}, ::Type{$supercls}) = true

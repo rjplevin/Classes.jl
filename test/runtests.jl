@@ -11,7 +11,7 @@ end
     bar::Int
 end
 
-@class Baz <: Bar begin
+@class mutable Baz <: Bar begin
    baz::Int
 end
 
@@ -37,5 +37,12 @@ z = Baz(100, 101, 102)
 @test bar(z) == 101
 
 @test_throws Exception bar(x)
+
+# Mutable
+z.foo = 1000
+@test foo(z) == 1000
+
+# Immutable
+@test_throws Exception x.foo = 1000
 
 end # module
