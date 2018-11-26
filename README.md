@@ -90,7 +90,7 @@ emits essentially the following:
 foo(obj::T) where T <: _Foo_ = obj.foo
 ```
 
-Since `Bar <: _Bar_ <: _Foo_`,  the method also applies to instances of `Bar`. You can subsequently add classes that subclass from `Foo` and this method will apply to them.
+Since `Bar <: _Bar_ <: _Foo_`,  the method also applies to instances of `Bar`.
 
 ```
 julia> f = Foo(1)
@@ -104,4 +104,20 @@ julia> foo(f)
 
 julia> foo(b)
 10
+
+julia> @method foo(obj::Bar) = obj.foo * 2
+foo (generic function with 2 methods)
+
+julia> foo(b)
+20
+
+julia> @class Baz <: Bar begin
+          baz::Int
+       end
+
+julia> z = Baz(100, 101, 102)
+Baz(100, 101, 102)
+
+julia> foo(z)
+200
 ```
