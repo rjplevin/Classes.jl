@@ -85,8 +85,8 @@ macro class(name_expr, fields_expr)
 end
 
 #=
-Converts, e.g., `@method get_foo(obj::CompDef) obj.foo` to
-`get_foo(obj::T) where T <: _CompDef_` so it works on all subclasses.
+Converts, e.g., `@method get_foo(obj::MyClass) obj.foo` to
+`get_foo(obj::T) where T <: _MyClass_` so it works on all subclasses.
 =#
 
 macro method(funcdef)
