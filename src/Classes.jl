@@ -45,13 +45,26 @@ function classof(::Type{T}) where {T <: _Class_}
     return T
 end
 
-macro class(name_expr, fields_expr)
-    if ! @capture(fields_expr, begin fields__ end)
-        error("@class $name_expr: badly formatted @class expression: $fields_expr")
+macro class(name_expr, block)
+    if ! @capture(block, begin exprs__ end)
+        error("@class $name_expr: badly formatted @class expression: $exprs")
     end
 
     if ! @capture(name_expr, cls_ <: supercls_)
+        cls = name_expr
         supercls = :Class
+    end
+
+    # split the expressions into constructors and field definitions
+    ctors  = []
+    fields = []
+    for ex in exprs
+        try 
+            splitdef(ex)        # raises AssertionError if not a func def
+            push!(ctors, ex)
+        catch
+            push!(fields, ex)
+        end
     end
 
     # append our fields to parents'
@@ -65,6 +78,7 @@ macro class(name_expr, fields_expr)
         abstract type $abs_class <: $abs_super end
         struct $cls <: $abs_class
             $(all_fields...)
+            $(ctors...)
         end
         
         Classes.superclass(::Type{$cls}) = $supercls
