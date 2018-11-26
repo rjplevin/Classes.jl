@@ -118,6 +118,12 @@ julia> @class Baz <: Bar begin
 julia> z = Baz(100, 101, 102)
 Baz(100, 101, 102)
 
+julia> dump(z)
+Baz
+  foo: Int64 100
+  bar: Int64 101
+  baz: Int64 102
+  
 julia> foo(z)
 200
 ```
