@@ -70,15 +70,15 @@ macro class(name_expr, fields_expr)
             $(all_fields...)
         end
         
-        Classes.superclass(t::Type{$cls}) = $supercls
-        Classes.issubclass(t1::Type{$cls}, t2::Type{$supercls}) = true
+        Classes.superclass(::Type{$cls}) = $supercls
+        Classes.issubclass(::Type{$cls}, ::Type{$supercls}) = true
     end
 
     # Start traversal up hierarchy with superclass since superclass() for 
     # this class doesn't exist until after this macro is evaluated.
     expr = quote
         for sup in superclasses($supercls)
-            eval(:(Classes.issubclass(t1::Type{$$cls}, t2::Type{$sup}) = true))
+            eval(:(Classes.issubclass(::Type{$$cls}, ::Type{$sup}) = true))
         end
         nothing
     end
@@ -106,9 +106,10 @@ macro method(funcdef)
     end
 
     type_symbol = gensym("$T")
+    abs_super = Symbol("_$(T)_")
 
     # Redefine the function to accept any first arg that's a subclass of abstype
-    parts[:whereparams] = (:($type_symbol <: Classes.supertype($T)), whereparams...)
+    parts[:whereparams] = (:($type_symbol <: $abs_super), whereparams...)
     args[1] = :($arg1::$type_symbol)
     expr = MacroTools.combinedef(parts)
     return esc(expr)
