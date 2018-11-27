@@ -21,6 +21,8 @@ end
     return obj.bar
 end
 
+@test Set(subclasses(Foo)) == Set(Any[Bar, Baz])
+
 x = Foo(1)
 y = Bar(10, 11)
 z = Baz(100, 101, 102)

@@ -1,8 +1,9 @@
 module Classes
 
 using MacroTools
+using InteractiveUtils: subtypes
 
-export @class, @method, superclass, superclasses, issubclass, subclasses, Class, _Class_
+export @class, @method, classof, superclass, superclasses, issubclass, subclasses, Class, _Class_
 
 _class_members = Dict{Symbol, Vector{Expr}}([:Class => []])
 
@@ -19,41 +20,74 @@ issubclass(t1::DataType, t2::DataType) = false
 # identity
 issubclass(t1::Type{T}, t2::Type{T}) where {T <: _Class_} = true
 
-function subclasses(t::Type{T}) where {T <: _Class_}
+"""
+Compute the concrete class associated with a shadow abstract class, which must
+be a subclass of _Class_.
+"""
+function classof(::Type{T}) where {T <: _Class_}
+    if ! isabstracttype(T)
+        return T
+    end
+
+    # Abstract types should have only one concrete subtype
+    concrete = filter(t -> !isabstracttype(t), subtypes(T))
+
+    if length(concrete) == 1
+        return concrete[1]
+    end
+
+    # Should never happen unless user manually creates errant subtypes
+    error("Abstract class supertype $T has multiple concrete subtypes: $concrete")
+end
+
+function subclasses(::Type{T}) where {T <: _Class_}
     # immediate supertype is "our" entry in the type hierarchy
-    super = supertype(T) 
+    super = supertype(T)
     
     # collect immediate subclasses
-    subs = [classof(t) for t in subtypes(super) if startswith(string(t), "_")]
+    subs = [classof(t) for t in subtypes(super) if isabstracttype(t)]
 
     # recurse on subclasses
     return [subs; [subclasses(t) for t in subs]...]
 end
 
 """
-Compute the concrete class associated with a shadow abstract class, which must
-be a subclass of _Class_.
+Return the symbol for the abstract class for `cls`
 """
-function classof(::Type{T}) where {T <: _Class_}
-    name = string(T)
+_absclass(cls::Symbol) = Symbol("_$(cls)_")
 
-    if (length(name) > 2 && startswith(name, "_") && endswith(name, "_"))
-        return eval(Symbol(name[2:end-1]))
-    end
-    
-    # If called on a concrete type, return the type
-    return T
+function _constructors(class, fields)
+    args = [sym for (sym, arg_type, slurp, default) in map(splitarg, fields)]
+    assigns = [:(self.$arg = $arg) for arg in args]
+
+    dflt = :(
+        function $class($(fields...))
+            new($(args...))
+        end
+    )
+
+    init = :(
+        function $class(self::T, $(fields...)) where {T <: $(_absclass(class))}
+            $(assigns...)
+        end
+    )
+
+    return [dflt, init]
 end
 
 macro class(elements...)
-    count = length(elements)
+    mutable = (elements[1] == :mutable)
+    if mutable
+        elements = elements[2:end]
+    end
 
-    if count == 2
+    count = length(elements)
+    
+    if count == 1                       # no fields defined
+        name_expr = elements[1]
+        definition = :(begin end)
+    elseif count == 2
         (name_expr, definition) = elements
-        mutable = false
-    elseif count == 3
-        (name_expr, definition) = elements[2:end]
-        mutable = true
     else
         error("Unrecognized form for @class definition: $elements")
     end
@@ -83,8 +117,12 @@ macro class(elements...)
     all_fields = [_class_members[supercls]; fields]
     _class_members[cls] = all_fields
 
-    abs_class = Symbol("_$(cls)_")
-    abs_super = Symbol("_$(supercls)_")
+    abs_class = _absclass(cls)
+    abs_super = _absclass(supercls)
+
+    # add default constructors
+    # TBD: deal with whereclauses
+    append!(ctors, _constructors(cls, all_fields))
 
     struct_def = :(
         struct $cls <: $abs_class
