@@ -13,25 +13,27 @@ if multiple types need to share structure, you either:
 All of these have downsides:
 
 * Writing out the fields manually creates maintenance challenges since you no longer have a single 
-  point of modification.  Using a macro to emit the common fields solves this problem, but there's still
-  no way to identify the relatedness of the structs that contain these common fields.
+  point of modification.  
+* Using a macro to emit the common fields solves this problem, but there's still
+  no convient way to identify the relatedness of the structs that contain these common fields.
 * Creating a new type for common fields generally involves creating functions to delegate from the outer 
-  type to the inner type.
-  This can become annoying if you have multiple levels of nesting. Of course you can write forwarding macros
-  to handle this, but this also becomes repetitive and annoying.
+  type to the inner type.  This can become tedious if you have multiple levels of nesting. Of course you
+  can write forwarding macros to handle this, but this also becomes repetitive.
 * None of the packages I reviewed seemed to combine the power and simplicity I was after.
 
-`Classes.jl` provides two short macros, `@class` and `@method` that (I hope) solve this problem in a
+`Classes.jl` provides two macros, `@class` and `@method` that (I hope) solve this problem in a
 sufficiently Julian manner to not offend language purists.
 
 ## The @class macro
 
-* A "class" is a concrete type. The `@class` macro saves the field definitions for each class
-  so that subclasses receive all their parent's fields in addition to those defined locally.
+A "class" is a concrete type with a defined relationship to a hierarchy of automatically
+generated abstract types. The `@class` macro saves the field definitions for each class
+so that subclasses receive all their parent's fields in addition to those defined locally.
+Inner constructors are passed through unchanged.
 
-* `Classes.jl` constructs a "shadow" type hierarchy to represent the relationships among the
-  defined classes. For each class `Foo`, the abstract type `_Foo_` is defined, where `_Foo_` 
-  is a subtype of the abstract type associated with the superclass of `Foo`.
+`Classes.jl` constructs a "shadow" abstract type hierarchy to represent the relationships among 
+the defined classes. For each class `Foo`, the abstract type `_Foo_` is defined, where `_Foo_` 
+is a subtype of the abstract type associated with the superclass of `Foo`.
 
 Given these two class definitions (note that `Class` is defined in `Classes.jl`):
 
@@ -40,7 +42,7 @@ Given these two class definitions (note that `Class` is defined in `Classes.jl`)
    foo::Int
 end
 
-@class Bar <: Foo begin
+@class mutable Bar <: Foo begin
     bar::Int
 end
 ```
@@ -56,13 +58,13 @@ end
 
 abstract type _Bar_ <: _Foo_ end
 
-struct Bar <: _Bar_
+mutable struct Bar <: _Bar_
     foo::Int
     bar::Int
 end
 ```
 
-In addition, functions are emitted that relate these:
+In addition, introspection functions are emitted that relate these:
 
 ```
 Classes.superclass(::Type{Bar}) = Foo
@@ -71,13 +73,20 @@ Classes.issubclass(::Type{Bar}, ::Type{Foo}) = true
 # And so on, up the type hierarchy
 ```
 
+The `mutable` keyword after `@class` results in a mutable struct, but this
+feature is not inherited by subclasses; it must be specified at each level.
+There is no special handling of mutability: it is the user's responsibility 
+to ensure that combinations of mutable and immutable classes and related 
+methods make sense.
+
 ## The @method macro
 
-* A "method" is a function whose first argument must be a type defined by `@class`.
-* The `@method` macro uses the shadow type hierarchy to redefine the given function
-  so that it applies to the given class and all of its subclasses.
-* Subclasses can override a superclass method by redefining the method on the
-  more specific class.
+A "method" is a function whose first argument must be a type defined by `@class`.
+The `@method` macro uses the shadow abstract type hierarchy to redefine the given 
+function so that it applies to the given class and all of its subclasses.
+
+Subclasses can override a superclass method by redefining the method on the
+more specific class.
 
 Continuing our example from above, 
 
