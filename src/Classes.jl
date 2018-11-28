@@ -56,18 +56,20 @@ Return the symbol for the abstract class for `cls`
 """
 _absclass(cls::Symbol) = Symbol("_$(cls)_")
 
-function _constructors(class, fields, params)
+function _constructors(class, fields, wheres)
     args = [sym for (sym, arg_type, slurp, default) in map(splitarg, fields)]
     assigns = [:(self.$arg = $arg) for arg in args]
 
+    params = [clause.args[1] for clause in wheres]
+
     dflt = :(
-        function $class{$(params...)}($(fields...))
+        function $class{$(params...)}($(fields...)) where {$(wheres...)}
             new{$(params...)}($(args...))
         end
     )
 
     init = :(
-        function $class(self::T, $(fields...)) where {T <: $(_absclass(class))}
+        function $class(self::T, $(fields...)) where {T <: $(_absclass(class)), $(wheres...)}
             $(assigns...)
         end
     )
@@ -133,8 +135,7 @@ macro class(elements...)
     abs_super = _absclass(supercls)
 
     # add default constructors
-    params = [clause.args[1] for clause in wheres]
-    append!(ctors, _constructors(cls, all_fields, params))
+    append!(ctors, _constructors(cls, all_fields, wheres))
 
     struct_def = :(
         struct $cls{$(wheres...)} <: $abs_class
