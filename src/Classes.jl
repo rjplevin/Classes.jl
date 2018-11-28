@@ -56,13 +56,13 @@ Return the symbol for the abstract class for `cls`
 """
 _absclass(cls::Symbol) = Symbol("_$(cls)_")
 
-function _constructors(class, fields)
+function _constructors(class, fields, params)
     args = [sym for (sym, arg_type, slurp, default) in map(splitarg, fields)]
     assigns = [:(self.$arg = $arg) for arg in args]
 
     dflt = :(
-        function $class($(fields...))
-            new($(args...))
+        function $class{$(params...)}($(fields...))
+            new{$(params...)}($(args...))
         end
     )
 
@@ -76,29 +76,41 @@ function _constructors(class, fields)
 end
 
 macro class(elements...)
+    # @info "elements: $elements"
     mutable = (elements[1] == :mutable)
     if mutable
         elements = elements[2:end]
     end
 
-    count = length(elements)
+    len = length(elements)
     
-    if count == 1                       # no fields defined
+    if len == 1                       # no fields defined
         name_expr = elements[1]
-        definition = :(begin end)
-    elseif count == 2
+        definition = quote end
+    elseif len == 2
         (name_expr, definition) = elements
     else
         error("Unrecognized form for @class definition: $elements")
     end
    
+    # @info "name: $name_expr"
+    # @info "def: $definition"
+
     if ! @capture(definition, begin exprs__ end)
         error("@class $name_expr: badly formatted @class expression: $exprs")
     end
 
-    if ! @capture(name_expr, cls_ <: supercls_)
-        cls = name_expr
+    # allow for optional type params and supertype
+    if ! @capture(name_expr, ((cls_{wheres__}  | cls_) <: supercls_) | (cls_{wheres__} | cls_))
+        error("Unrecognized class name expression: $name_expr")
+    end
+
+    if supercls === nothing
         supercls = :Class
+    end
+
+    if wheres == nothing
+        wheres = []
     end
 
     # split the expressions into constructors and field definitions
@@ -121,11 +133,11 @@ macro class(elements...)
     abs_super = _absclass(supercls)
 
     # add default constructors
-    # TBD: deal with whereclauses
-    append!(ctors, _constructors(cls, all_fields))
+    params = [clause.args[1] for clause in wheres]
+    append!(ctors, _constructors(cls, all_fields, params))
 
     struct_def = :(
-        struct $cls <: $abs_class
+        struct $cls{$(wheres...)} <: $abs_class
             $(all_fields...)
             $(ctors...)
         end
@@ -156,8 +168,11 @@ macro class(elements...)
 end
 
 #=
-Converts, e.g., `@method get_foo(obj::MyClass) obj.foo` to
-`get_foo(obj::T) where T <: _MyClass_` so it works on all subclasses.
+    @method get_foo(obj::MyClass) obj.foo
+->
+    get_foo(obj::T) where T <: _MyClass_
+    
+so it works on subclasses, too.
 =#
 
 macro method(funcdef)
@@ -171,7 +186,7 @@ macro method(funcdef)
     end
 
     type_symbol = gensym("$T")
-    abs_super = Symbol("_$(T)_")
+    abs_super = _absclass(T)
 
     # Redefine the function to accept any first arg that's a subclass of abstype
     parts[:whereparams] = (:($type_symbol <: $abs_super), whereparams...)

@@ -47,4 +47,10 @@ z.foo = 1000
 # Immutable
 @test_throws Exception x.foo = 1000
 
+# test that where clause is amended properly
+@method zzz(obj::Foo, bar::T) where {T} = T
+
+@test zzz(x, :x) == Symbol
+@test zzz(y, 10.6) == Float64
+
 end # module
