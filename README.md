@@ -19,10 +19,11 @@ All of these have downsides:
 * Creating a new type for common fields generally involves creating functions to delegate from the outer 
   type to the inner type.  This can become tedious if you have multiple levels of nesting. Of course you
   can write forwarding macros to handle this, but this also becomes repetitive.
-* None of the packages I reviewed seemed to combine the power and simplicity I was after.
+* None of the packages I reviewed seemed to combine the power and simplicity I was after, and several
+  of them haven't been updated in years (e.g., OOPMacro.jl, ConcreteAbstractions.jl).
 
-`Classes.jl` provides two macros, `@class` and `@method` that (I hope) solve this problem in a
-sufficiently Julian manner to not offend language purists.
+`Classes.jl` provides two macros, `@class` and `@method` that address this problem. (I believe it does
+so in a sufficiently Julian manner as to not offend language purists. ;~)
 
 ## The @class macro
 
@@ -37,8 +38,10 @@ is a subtype of the abstract type associated with the superclass of `Foo`.
 
 Given these two class definitions (note that `Class` is defined in `Classes.jl`):
 
- ```
-@class Foo <: Class begin
+```
+import Classes
+
+@class Foo <: Class begin       # or, equivalently, @class Foo begin ... end
    foo::Int
 end
 
@@ -52,17 +55,39 @@ The following julia code is emitted:
 ```
 abstract type _Foo_ <: _Class_ end
 
-struct Foo <: _Foo_
-    foo::Int
+struct Foo{} <: _Foo_
+    x::Int
+
+    function Foo(x::Int)
+        new(x)
+    end
+
+    function Foo(self::T, x::Int) where T <: _Foo_
+        self.x = x
+        self
+    end
 end
 
 abstract type _Bar_ <: _Foo_ end
 
-mutable struct Bar <: _Bar_
-    foo::Int
+mutable struct Bar{} <: _Bar_
+    x::Int
     bar::Int
+
+    function Bar(x::Int, bar::Int)
+        new(x, bar)
+    end
+
+    function Bar(self::T, x::Int, bar::Int) where T <: _Bar_
+        self.x = x
+        self.bar = bar
+        self
+    end
 end
 ```
+
+Note that the second emitted constructor is parameterized such that it can be called 
+on the class's subclasses to set fields defined by the class.
 
 In addition, introspection functions are emitted that relate these:
 
@@ -73,17 +98,17 @@ Classes.issubclass(::Type{Bar}, ::Type{Foo}) = true
 # And so on, up the type hierarchy
 ```
 
-The `mutable` keyword after `@class` results in a mutable struct, but this
-feature is not inherited by subclasses; it must be specified at each level.
-There is no special handling of mutability: it is the user's responsibility 
-to ensure that combinations of mutable and immutable classes and related 
+Adding the `mutable` keyword after `@class` results in a mutable struct, but this
+feature is not inherited by subclasses; it must be specified (if desired) for each
+subclass. `Classes.jl` offers no special handling of mutability: it is the user's 
+responsibility to ensure that combinations of mutable and immutable classes and related 
 methods make sense.
 
 ## The @method macro
 
 A "method" is a function whose first argument must be a type defined by `@class`.
 The `@method` macro uses the shadow abstract type hierarchy to redefine the given 
-function so that it applies to the given class and all of its subclasses.
+function so that it applies to the given class as well as its subclasses.
 
 Subclasses can override a superclass method by redefining the method on the
 more specific class.
@@ -113,13 +138,21 @@ julia> foo(f)
 
 julia> foo(b)
 10
+```
 
+We can redefine `foo` for class `Bar` to override its "inherited" superclass definition:
+
+```
 julia> @method foo(obj::Bar) = obj.foo * 2
 foo (generic function with 2 methods)
 
 julia> foo(b)
 20
+```
 
+Subclasses of `Bar` now inherit its definition, rather than the one from `Foo`:
+
+```
 julia> @class Baz <: Bar begin
           baz::Int
        end

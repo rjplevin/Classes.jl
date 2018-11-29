@@ -62,15 +62,18 @@ function _constructors(class, fields, wheres)
 
     params = [clause.args[1] for clause in wheres]
 
-    dflt = :(
+    dflt = length(params) > 0 ? :(
         function $class{$(params...)}($(fields...)) where {$(wheres...)}
             new{$(params...)}($(args...))
-        end
-    )
+        end) : :(
+        function $class($(fields...))
+            new($(args...))
+        end)
 
     init = :(
         function $class(self::T, $(fields...)) where {T <: $(_absclass(class)), $(wheres...)}
             $(assigns...)
+            self
         end
     )
 
