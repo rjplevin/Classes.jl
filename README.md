@@ -87,7 +87,8 @@ end
 ```
 
 Note that the second emitted constructor is parameterized such that it can be called 
-on the class's subclasses to set fields defined by the class.
+on the class's subclasses to set fields defined by the class. Of course, this is
+callable only on a mutable struct.
 
 In addition, introspection functions are emitted that relate these:
 

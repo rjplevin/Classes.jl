@@ -7,7 +7,7 @@ using Classes
    foo::Int
 end
 
-@class Bar <: Foo begin
+@class mutable Bar <: Foo begin
     bar::Int
 end
 
