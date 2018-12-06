@@ -5,14 +5,35 @@ using Classes
 
 @class Foo <: Class begin
    foo::Int
+
+   Foo() = Foo(0)
+
+   # Although Foo is immutable, subclasses might not be,
+   # so it's still useful to define this method.
+   function Foo(self::absclass(Foo))
+        self.foo = 0
+    end
 end
 
 @class mutable Bar <: Foo begin
     bar::Int
+
+    # Mutable classes can use this pattern
+    function Bar(self::Union{Nothing, absclass(Bar)}=nothing)
+        self = (self === nothing ? new() : self)
+        superclass(Bar)(self)
+        Bar(self, 0)
+    end
 end
 
 @class mutable Baz <: Bar begin
    baz::Int
+
+   function Baz(self::Union{Nothing, absclass(Baz)}=nothing)
+        self = (self === nothing ? new() : self)
+        superclass(Baz)(self)
+        Baz(self, 0)
+    end
 end
 
 @method foo(obj::Foo) = obj.foo

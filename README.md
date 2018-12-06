@@ -1,6 +1,7 @@
 # Classes.jl
 A simple, Julian approach to inheritance of structure and methods.
 
+## Motivation
 Julia is not an object-oriented language in the traditional sense that only abstract types can be inherited. Thus,
 if multiple types need to share structure, you either:
 
@@ -104,6 +105,8 @@ feature is not inherited by subclasses; it must be specified (if desired) for ea
 subclass. `Classes.jl` offers no special handling of mutability: it is the user's 
 responsibility to ensure that combinations of mutable and immutable classes and related 
 methods make sense.
+
+* Keyword parameters
 
 ## The @method macro
 

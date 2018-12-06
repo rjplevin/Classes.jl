@@ -3,34 +3,40 @@ module Classes
 using MacroTools
 using InteractiveUtils: subtypes
 
-export @class, @method, classof, superclass, superclasses, issubclass, subclasses, absclass, Class, _Class_
-
-# TBD: change this to store local vars only; calculate full set on the fly (allows id of local ones only)
-_class_members = Dict{Symbol, Vector{Expr}}(:Class => [])
-_superclasses  = Dict{Symbol, Union{Nothing, Symbol}}(:Class => nothing)
-
-function _set_superclass(cls::Symbol, supercls::Symbol)
-    _superclasses[cls] = supercls
-end
-
-_get_superclass(cls::Symbol) = haskey(_superclasses, cls) ? _superclasses[cls] : nothing
-
-function _set_ivars(cls::Symbol, fields::Vector{Expr})
-    _class_members[cls] = fields
-end
-
-_get_local_ivars(cls::Symbol) = _class_members[cls]
-
-function _get_ivars(cls::Symbol)
-    supercls = _get_superclass(cls)
-    parent_fields = (supercls === nothing ? [] : _get_ivars(supercls))
-    return [parent_fields; _get_local_ivars(cls)]
-end
+export @class, @method, classof, superclass, superclasses, issubclass, subclasses, absclass, class_info, Class, _Class_
 
 abstract type _Class_ end            # supertype of all shadow class types
 abstract type Class <: _Class_ end   # superclass of all concrete classes
 
+struct ClassInfo
+    name::Symbol
+    # module::?
+    super::Union{Nothing, Symbol}
+    ismutable::Bool
+    ivars::Vector{Expr}
+end
+
+_classes = Dict{Symbol, ClassInfo}(:Class => ClassInfo(:Class, nothing, false, []))
+
+function _register_class(name, super, ismutable, ivars)
+    _classes[name] = ClassInfo(name, super, ismutable, ivars)
+end
+
+class_info(name::Symbol) = _classes[name]
+class_info(::Type{T}) where {T <: _Class_} = class_info(nameof(T))
+
+# Gets cumulative set of instance vars including those in all superclasses
+function _all_ivars(cls::Symbol)
+    info = class_info(cls)
+    supercls = info.super
+    parent_fields = (supercls === nothing ? [] : _all_ivars(supercls))
+    return [parent_fields; info.ivars]
+end
+
+
+# N.B. superclass() methods are emitted by @class macro
 superclass(t::Type{Class}) = nothing
+
 superclasses(t::Type{Class}) = []
 superclasses(t::Type{T} where {T <: _Class_}) = [superclass(t), superclasses(superclass(t))...]
 
@@ -41,6 +47,8 @@ issubclass(t1::DataType, t2::DataType) = false
 issubclass(t1::Type{T}, t2::Type{T}) where {T <: _Class_} = true
 
 """
+    classof(::Type{T}) where {T <: _Class_}
+
 Compute the concrete class associated with a shadow abstract class, which must
 be a subclass of _Class_.
 """
@@ -60,6 +68,11 @@ function classof(::Type{T}) where {T <: _Class_}
     error("Abstract class supertype $T has multiple concrete subtypes: $concrete")
 end
 
+"""
+    subclasses(::Type{T}) where {T <: _Class_}
+
+Compute the vector of subclasses for a given class.
+"""
 function subclasses(::Type{T}) where {T <: _Class_}
     # immediate supertype is "our" entry in the type hierarchy
     super = supertype(T)
@@ -80,11 +93,13 @@ function absclass(::Type{T}) where {T <: _Class_}
     return isabstracttype(T) ? error("absclass(T) must be called on concrete classes. $T is abstract class type") : supertype(T)
 end
 
+_argnames(fields) = [sym for (sym, arg_type, slurp, default) in map(splitarg, fields)]
+
 # We generate two initializer functions: one takes all fields, cumulative through superclasses,
 # and another initializes only locally-defined fields. This function produces either, depending
 # on the fields passed by _constructors().
 function _initializer(class, fields, wheres)
-    args = [sym for (sym, arg_type, slurp, default) in map(splitarg, fields)]
+    args = _argnames(fields)
     assigns = [:(self.$arg = $arg) for arg in args]
 
     funcdef = :(
@@ -98,16 +113,15 @@ function _initializer(class, fields, wheres)
 end
 
 function _constructors(class, wheres)
-    local_fields = _get_local_ivars(class)
-    all_fields = _get_ivars(class)
+    info = class_info(class)
+    local_fields = info.ivars
+    all_fields = _all_ivars(class)
 
-    args = [sym for (sym, arg_type, slurp, default) in map(splitarg, all_fields)]
-    assigns = [:(self.$arg = $arg) for arg in args]
-
+    args = _argnames(all_fields)
     params = [clause.args[1] for clause in wheres]  # extract parameter names from where clauses
 
     dflt = length(params) > 0 ? :(
-        function $class{$(params...)}($(fields...)) where {$(wheres...)}
+        function $class{$(params...)}($(all_fields...)) where {$(wheres...)}
             new{$(params...)}($(args...))
         end) : :(
         function $class($(all_fields...))
@@ -123,6 +137,23 @@ function _constructors(class, wheres)
     if all_fields != local_fields
         init_local = _initializer(class, local_fields, wheres)
         push!(methods, init_local)
+    end
+
+    # Primarily for immutable classes, we emit a constructor that takes an instance
+    # of the direct superclass and copies values when creating a new object.
+    super_fields = _all_ivars(info.super)
+    if length(super_fields) != 0
+        super_args = [:(s.$arg) for arg in _argnames(super_fields)]
+        local_args = _argnames(local_fields)
+        all_args = [super_args; local_args]
+
+        # TBD: might need version with/without params/wheres as with dflt above
+        immut_init = :(
+            function $class($(local_fields...), s::$(info.super))
+                new($(all_args...))
+            end
+        )
+        push!(methods, immut_init)
     end
 
     return methods
@@ -173,10 +204,9 @@ macro class(elements...)
         end
     end
 
-    _set_superclass(cls, supercls)
-    _set_ivars(cls, fields)
+    _register_class(cls, supercls, mutable, fields)
 
-    all_fields = _get_ivars(cls) # including parents' fields, recursively
+    all_fields = _all_ivars(cls) # including parents' fields, recursively
 
     abs_class = _absclass(cls)
     abs_super = _absclass(supercls)
