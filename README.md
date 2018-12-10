@@ -134,18 +134,30 @@ A "method" is a function whose first argument must be a type defined by `@class`
 The `@method` macro uses the shadow abstract type hierarchy to redefine the given 
 function so that it applies to the given class as well as its subclasses.
 
+Thus the following `@method` invocation
+
+```
+@method my_method(obj::Bar, other, stuff) = do_something(obj, other, stuff)
+```
+
+emits essentially the following code:
+
+```
+my_method(obj::_Bar_, other, stuff) = do_something(obj, other, args)
+```
+
+The only change is that the type of first argument is changed to the abstract supertype
+associated with the concrete type `Bar`, allowing subclasses of `Bar`, whose
+abstract supertype would by a subtype of `_Bar_` to use the method as well. Since 
+the subclass contains a superset of the fields in the superclass, this works out fine.
+
 Subclasses can override a superclass method by redefining the method on the
 more specific class.
 
-Continuing our example from above, 
+The `@class` macro emits the following function:
 
 ```
-@method foo(obj::Foo) = obj.foo
-```
-emits essentially the following:
-
-```
-foo(obj::T) where T <: _Foo_ = obj.foo
+foo(obj::_Foo_) = obj.foo
 ```
 
 Since `Bar <: _Bar_ <: _Foo_`,  the method also applies to instances of `Bar`.
@@ -164,7 +176,7 @@ julia> foo(b)
 10
 ```
 
-We can redefine `foo` for class `Bar` to override its "inherited" superclass definition:
+We can redefine `foo` for class `Bar` to override its inherited superclass definition:
 
 ```
 julia> @method foo(obj::Bar) = obj.foo * 2
@@ -174,7 +186,9 @@ julia> foo(b)
 20
 ```
 
-Subclasses of `Bar` now inherit its definition, rather than the one from `Foo`:
+Subclasses of `Bar` now inherit its definition, rather than the one from `Foo`,
+since the prior class is more specialized (further down in the shadow abstract
+type hierarchy).
 
 ```
 julia> @class Baz <: Bar begin
