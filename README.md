@@ -119,10 +119,10 @@ two functions are generated:
 
 ```
     # "getter" function
-    foo(obj::_Foo_) = obj.foo
+    get_foo(obj::_Foo_) = obj.foo
 
     # "setter" function
-    foo!(obj::_Foo_, value::T) = (obj.foo = foo)
+    set_foo!(obj::_Foo_, value::T) = (obj.foo = foo)
 ```
 
 Note that these are defined on objects of type `_Foo_`, so they can be used on `Foo`
@@ -147,8 +147,8 @@ my_method(obj::_Bar_, other, stuff) = do_something(obj, other, args)
 ```
 
 The only change is that the type of first argument is changed to the abstract supertype
-associated with the concrete type `Bar`, allowing subclasses of `Bar`, whose
-abstract supertype would by a subtype of `_Bar_` to use the method as well. Since 
+associated with the concrete type `Bar`, allowing subclasses of `Bar` -- whose
+abstract supertype would by a subtype of `_Bar_` -- to use the method as well. Since 
 the subclass contains a superset of the fields in the superclass, this works out fine.
 
 Subclasses can override a superclass method by redefining the method on the
@@ -157,7 +157,7 @@ more specific class.
 The `@class` macro emits the following function:
 
 ```
-foo(obj::_Foo_) = obj.foo
+get_foo(obj::_Foo_) = obj.foo
 ```
 
 Since `Bar <: _Bar_ <: _Foo_`,  the method also applies to instances of `Bar`.
@@ -169,20 +169,20 @@ Foo(1)
 julia> b = Bar(10, 11)
 Bar(10, 11)
 
-julia> foo(f)
+julia> get_foo(f)
 1
 
-julia> foo(b)
+julia> get_foo(b)
 10
 ```
 
-We can redefine `foo` for class `Bar` to override its inherited superclass definition:
+We can redefine `get_foo` for class `Bar` to override its inherited superclass definition:
 
 ```
-julia> @method foo(obj::Bar) = obj.foo * 2
-foo (generic function with 2 methods)
+julia> @method get_foo(obj::Bar) = obj.foo * 2
+get_foo (generic function with 2 methods)
 
-julia> foo(b)
+julia> get_foo(b)
 20
 ```
 
@@ -204,6 +204,6 @@ Baz
   bar: Int64 101
   baz: Int64 102
   
-julia> foo(z)
+julia> get_foo(z)
 200
 ```

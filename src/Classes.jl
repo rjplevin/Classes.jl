@@ -162,16 +162,17 @@ end
 
 # Generate "getter" and "setter" functions for all instance variables.
 # For ivar `foo::T`, in class `ClassName`, generate:
-#   foo(obj::absclass(ClassName)) = obj.foo
-#   foo!(obj::absclass(ClassName), value::T) = (obj.foo = foo)
+#   get_foo(obj::absclass(ClassName)) = obj.foo
+#   set_foo!(obj::absclass(ClassName), value::T) = (obj.foo = foo)
 function _accessors(cls)
     info = class_info(cls)
     super = _absclass(cls)
     exprs = Vector{Expr}()
 
-    for (name, argtype, slurp, default) in map(splitarg, info.ivars)        
-        push!(exprs, :($name(obj::$super) = obj.$name))
-        setter = Symbol(string(name, "!"))
+    for (name, argtype, slurp, default) in map(splitarg, info.ivars)
+        getter = Symbol("get_$(name)")
+        setter = Symbol("set_$(name)!")
+        push!(exprs, :($getter(obj::$super) = obj.$name))
         push!(exprs, :($setter(obj::$super, value::$argtype) = (obj.$name = value)))
     end
     return exprs

@@ -105,11 +105,9 @@ Foo(foo::Int64)
 # local-field initializer
 Foo(self::T, foo::Int64) where T<:_Foo_ 
 
-# getter
-foo(obj::_Foo_) = obj.foo
-
-# setter
-foo!(obj::_Foo_, value::Int) = (obj.foo = value)
+# field accessors
+get_foo(obj::_Foo_) = obj.foo
+set_foo!(obj::_Foo_, value::Int) = (obj.foo = value)
 
 # Custom constructor defined inside the @class above
 Bar()
@@ -133,11 +131,9 @@ Bar(self::T, foo::Int64, bar::Int64) where T<:_Bar_
 #  Superclass-copy initializer 
 Bar(bar::Int64, s::Foo)
 
-# getter
-bar(obj::_Bar_) = obj.bar
-
-# setter
-bar!(obj::_Bar_, value::Int) = (obj.bar = value)
+# field accessors
+get_bar(obj::_Bar_) = obj.bar
+set_bar!(obj::_Bar_, value::Int) = (obj.bar = value)
 ```
 
 ## Example from Mimi
