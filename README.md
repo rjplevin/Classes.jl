@@ -2,29 +2,32 @@
 A simple, Julian approach to inheritance of structure and methods.
 
 ## Motivation
-Julia is not an object-oriented language in the traditional sense that only abstract types can be inherited. Thus,
-if multiple types need to share structure, you either:
+Julia is not an object-oriented language in the traditional sense in that there is no inheritance of structure.
+If multiple types need to share structure, you have several options:
 
 1. Write out the common fields manually.
-1. Create a new type that holds the common fields and include an instance of this in
-   each of the structs that needs the common fields.
-1. Write a macro that emits the common fields.
-1. Use someone else's macros that provide such features.
+1. Write a macro that emits the common fields. This is better than the manual approach
+   since it creates a single point of modification.
+1. Use composition instead of inheritance: create a new type that holds the common fields 
+   and include an instance of this in each of the structs that needs the common fields.
+1. Use an existing package that provides the required features.
 
 All of these have downsides:
 
-* Writing out the fields manually creates maintenance challenges since you no longer have a single 
-  point of modification.  
+* As suggested above, writing out the duplicate fields manually creates maintenance challenges 
+  since you no longer have a single  point of modification.  
 * Using a macro to emit the common fields solves this problem, but there's still
   no convient way to identify the relatedness of the structs that contain these common fields.
-* Creating a new type for common fields generally involves creating functions to delegate from the outer 
-  type to the inner type.  This can become tedious if you have multiple levels of nesting. Of course you
+* Composition -- the typically recommended julian approach -- generally involves creating 
+  functions to delegate from the outer type to the inner type. This can become tedious if 
+  you have multiple levels of nesting. Of course you
   can write forwarding macros to handle this, but this also becomes repetitive.
-* None of the packages I reviewed seemed to combine the power and simplicity I was after, and several
-  of them haven't been updated in years (e.g., OOPMacro.jl, ConcreteAbstractions.jl).
+* Neither of the packages I reviewed -- OOPMacro.jl and ConcreteAbstractions.jl -- combine the
+  power and simplicity I was after, and neither has been updated in years.
 
-`Classes.jl` provides two macros, `@class` and `@method` that address this problem. (I believe it does
-so in a sufficiently Julian manner as to not offend language purists. ;~)
+`Classes.jl` provides two macros, `@class` and `@method` that are simple wrappers around
+existing Julia syntax. `Classes.jl` exploits the type Julia system to provide inheritance
+of methods while enabling shared structure without duplicative code.
 
 ## The @class macro
 
@@ -107,6 +110,23 @@ responsibility to ensure that combinations of mutable and immutable classes and 
 methods make sense.
 
 * Keyword parameters
+
+### Generated accessor functions
+
+The `@class` macro also generates "getter" and "setter" functions for all locally
+defined fields in each class. For example, For a class `Foo` with local field `foo::T`, 
+two functions are generated:
+
+```
+    # "getter" function
+    foo(obj::_Foo_) = obj.foo
+
+    # "setter" function
+    foo!(obj::_Foo_, value::T) = (obj.foo = foo)
+```
+
+Note that these are defined on objects of type `_Foo_`, so they can be used on `Foo`
+and any of its subclasses.
 
 ## The @method macro
 

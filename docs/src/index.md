@@ -37,6 +37,20 @@ in several forms:
 
 ### Support methods
 
+* The `@class` macro generates "getter" and "setter" functions for all locally
+  defined fields in each class. For example, For a class `Foo` with local field `foo::T`, 
+  two functions are generated:
+
+  ```
+    # "getter" function
+    foo(obj::_Foo_) = obj.foo
+
+    # "setter" function
+    foo!(obj::_Foo_, value::T) = (obj.foo = foo)
+  ```
+  Note that these are defined on objects of type `_Foo_`, so they can be used on `Foo`
+  and any of its subclasses.
+
 * `issubclass(class, superclass)`
 
    For all superclasses of the newly defined class, a method of `issubclass` is emitted that
@@ -91,6 +105,11 @@ Foo(foo::Int64)
 # local-field initializer
 Foo(self::T, foo::Int64) where T<:_Foo_ 
 
+# getter
+foo(obj::_Foo_) = obj.foo
+
+# setter
+foo!(obj::_Foo_, value::Int) = (obj.foo = value)
 
 # Custom constructor defined inside the @class above
 Bar()
@@ -113,8 +132,13 @@ Bar(self::T, foo::Int64, bar::Int64) where T<:_Bar_
 
 #  Superclass-copy initializer 
 Bar(bar::Int64, s::Foo)
-```
 
+# getter
+bar(obj::_Bar_) = obj.bar
+
+# setter
+bar!(obj::_Bar_, value::Int) = (obj.bar = value)
+```
 
 ## Example from Mimi
 

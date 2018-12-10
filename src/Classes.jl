@@ -147,16 +147,34 @@ function _constructors(class, wheres)
         local_args = _argnames(local_fields)
         all_args = [super_args; local_args]
 
-        # TBD: might need version with/without params/wheres as with dflt above
-        immut_init = :(
+        immut_init = length(params) > 0 ? :(
+            function $class{$(params...)}($(local_fields...), s::$(info.super)) where {$(wheres...)}
+                new{$(params...)}($(all_args...))
+            end) : :(
             function $class($(local_fields...), s::$(info.super))
                 new($(all_args...))
-            end
-        )
+            end)
         push!(methods, immut_init)
     end
 
     return methods
+end
+
+# Generate "getter" and "setter" functions for all instance variables.
+# For ivar `foo::T`, in class `ClassName`, generate:
+#   foo(obj::absclass(ClassName)) = obj.foo
+#   foo!(obj::absclass(ClassName), value::T) = (obj.foo = foo)
+function _accessors(cls)
+    info = class_info(cls)
+    super = _absclass(cls)
+    exprs = Vector{Expr}()
+
+    for (name, argtype, slurp, default) in map(splitarg, info.ivars)        
+        push!(exprs, :($name(obj::$super) = obj.$name))
+        setter = Symbol(string(name, "!"))
+        push!(exprs, :($setter(obj::$super, value::$argtype) = (obj.$name = value)))
+    end
+    return exprs
 end
 
 macro class(elements...)
@@ -223,13 +241,16 @@ macro class(elements...)
         end
     )
 
+    accessors = _accessors(cls)
+
     # toggles definition between mutable and immutable struct
     struct_def.args[1] = mutable
 
     result = quote
         abstract type $abs_class <: $abs_super end
         $struct_def
-        
+        $(accessors...)
+
         Classes.superclass(::Type{$cls}) = $supercls
         Classes.issubclass(::Type{$cls}, ::Type{$supercls}) = true
     end
