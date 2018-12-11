@@ -37,19 +37,42 @@ in several forms:
 
 ### Support methods
 
-* The `@class` macro generates "getter" and "setter" functions for all locally
+* By default, the `@class` macro generates "getter" and "setter" functions for all locally
   defined fields in each class. For example, For a class `Foo` with local field `foo::T`, 
   two functions are generated:
 
   ```
     # "getter" function
-    foo(obj::_Foo_) = obj.foo
+    get_foo(obj::_Foo_) = obj.foo
 
     # "setter" function
-    foo!(obj::_Foo_, value::T) = (obj.foo = foo)
+    set_foo!(obj::_Foo_, value::T) = (obj.foo = foo)
   ```
   Note that these are defined on objects of type `_Foo_`, so they can be used on `Foo`
   and any of its subclasses.
+
+Whether to emit these functions, and, if so, how to name them can be controlled by
+passing a tuple of "meta-parameters" as the first argument to `@class` as in this
+example:
+
+```
+@class (setters=>false, getter_prefix=>"") ClassName <: SuperClass ... 
+```
+
+
+Note that if the tuple argument is used, the `mutable` keyword must also be passed in 
+the tuple, e.g., as `(mutable=>true, setters=>false)`
+
+Use this to set the following options (the default values are shown):
+```
+    mutable=>false          # Whether to generate a mutable struct
+    setters=>true           # Whether to generate setter functions
+    getters=>true           # Whether to generate getter functions
+    getter_prefix=>"get_"   # Prefix to use for getter functions
+    getter_suffix=>""       # Suffix to use for getter functions
+    setter_prefix=>"set_"   # Prefix to use for setter functions
+    setter_suffix=>"!"      # Suffix to use for setter functions
+```
 
 * `issubclass(class, superclass)`
 
