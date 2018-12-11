@@ -5,7 +5,7 @@ using InteractiveUtils: subtypes
 
 export @class, @method, classof, superclass, superclasses, issubclass, subclasses, absclass, class_info, Class, _Class_
 
-# Default values for meta-options to @class to control what the macro emits
+# Default values for meta-args to @class to control what the macro emits
 class_defaults = Dict(
     :mutable => false,
     :getters => true,
@@ -44,14 +44,29 @@ function _all_ivars(cls::Symbol)
     return [parent_fields; info.ivars]
 end
 
+"""
+    superclass(t::Type{Class})
 
-# N.B. superclass() methods are emitted by @class macro
+Returns the type of the concrete superclass of the given class, or `nothing`
+for `Class`, which is the root of the class hierarchy.
+"""
 superclass(t::Type{Class}) = nothing
 
+"""
+    superclasses(t::Type{Class})
+
+Returns a vector of superclasses from the superclass of the current class
+to `Class`, in order.
+"""
 superclasses(t::Type{Class}) = []
 superclasses(t::Type{T} where {T <: _Class_}) = [superclass(t), superclasses(superclass(t))...]
 
 # catch-all
+"""
+    issubclass(t1::DataType, t2::DataType)
+
+Returns `true` if `t1` is a subclass of `t2`, else false.
+"""
 issubclass(t1::DataType, t2::DataType) = false
 
 # identity
@@ -95,11 +110,13 @@ function subclasses(::Type{T}) where {T <: _Class_}
     return [subs; [subclasses(t) for t in subs]...]
 end
 
-"""
-Return the symbol for the abstract class for `cls`
-"""
 _absclass(cls::Symbol) = Symbol("_$(cls)_")
 
+"""
+    absclass(::Type{T}) where {T <: _Class_}
+
+Returns the abstract type for the concrete class for `T`
+"""
 function absclass(::Type{T}) where {T <: _Class_}
     return isabstracttype(T) ? error("absclass(T) must be called on concrete classes. $T is abstract class type") : supertype(T)
 end
@@ -213,8 +230,8 @@ function _parse_meta_args(cls, exprs, mutable)
     exprs === nothing && return meta_args
     
     for elt in exprs
-        @capture(elt, name_ = value_) || error("@class $cls: Meta variables must be a tuple of keyword assignments: got $exprs")
-        haskey(meta_args, name)       || error("@class $cls: Unknown meta variable name '$name'. Possible values are: $(Tuple(keys(class_defaults)))")
+        @capture(elt, name_ = value_) || error("@class $cls: Meta args must be a tuple of keyword assignments: got $exprs")
+        haskey(meta_args, name)       || error("@class $cls: Unknown meta args name '$name'. Possible values are: $(Tuple(keys(class_defaults)))")
         
         # handle corner case of `@class mutable Foo(mutable=false)`
         if (mutable && name === :mutable && value == :false)
@@ -327,7 +344,7 @@ macro method(funcdef)
         error("First argument of method $name must be explicitly typed")
     end
 
-    type_symbol = gensym("$T")
+    type_symbol = gensym("$T")  # gensym avoids conflict with user's type params
     abs_super = _absclass(T)
 
     # Redefine the function to accept any first arg that's a subclass of abstype
