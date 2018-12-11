@@ -3,7 +3,7 @@ module TestClasses
 using Test
 using Classes
 
-@class Foo <: Class begin
+@class (getter_prefix => "") Foo <: Class begin
    foo::Int
 
    Foo() = Foo(0)
@@ -26,7 +26,7 @@ end
     end
 end
 
-@class mutable Baz <: Bar begin
+@class (mutable=>true) Baz <: Bar begin
    baz::Int
 
    function Baz(self::Union{Nothing, absclass(Baz)}=nothing)
@@ -36,10 +36,11 @@ end
     end
 end
 
-@method foo(obj::Foo) = obj.foo
+# emitted by class Foo
+# @method foo(obj::Foo) = obj.foo
 
-@method function bar(obj::Bar)
-    return obj.bar
+@method function sum(obj::Bar)
+    return foo(obj) + get_bar(obj)
 end
 
 @test Set(subclasses(Foo)) == Set(Any[Bar, Baz])
@@ -56,13 +57,14 @@ z = Baz(100, 101, 102)
 @test foo(y) == 10
 @test foo(z) == 100
 
-@test bar(y) == 11
-@test bar(z) == 101
+@test sum(y) == 21
+@test get_bar(y) == 11
+@test get_bar(z) == 101
 
-@test_throws Exception bar(x)
+@test_throws Exception get_bar(x)
 
 # Mutable
-z.foo = 1000
+set_foo!(z, 1000)
 @test foo(z) == 1000
 
 # Immutable

@@ -5,6 +5,17 @@ using InteractiveUtils: subtypes
 
 export @class, @method, classof, superclass, superclasses, issubclass, subclasses, absclass, class_info, Class, _Class_
 
+# Default values for meta-options to @class
+class_defaults = Dict(
+    :mutable => false,
+    :getters => true,
+    :setters => true,
+    :getter_prefix => "get_",
+    :getter_suffix => "",
+    :setter_prefix => "set_",
+    :setter_suffix => "!"
+)
+
 abstract type _Class_ end            # supertype of all shadow class types
 abstract type Class <: _Class_ end   # superclass of all concrete classes
 
@@ -164,29 +175,70 @@ end
 # For ivar `foo::T`, in class `ClassName`, generate:
 #   get_foo(obj::absclass(ClassName)) = obj.foo
 #   set_foo!(obj::absclass(ClassName), value::T) = (obj.foo = foo)
-function _accessors(cls)
-    info = class_info(cls)
-    super = _absclass(cls)
+function _accessors(cls, meta_args)
     exprs = Vector{Expr}()
 
+    emit_getters = meta_args[:getters]
+    emit_setters = meta_args[:setters]
+
+    if ! (emit_getters || emit_setters)
+        return exprs    # nothing to do
+    end
+
+    info = class_info(cls)
+    super = _absclass(cls)
+
+    get_pre = meta_args[:getter_prefix]
+    get_suf = meta_args[:getter_suffix]
+    set_pre = meta_args[:setter_prefix]
+    set_suf = meta_args[:setter_suffix]
+
     for (name, argtype, slurp, default) in map(splitarg, info.ivars)
-        getter = Symbol("get_$(name)")
-        setter = Symbol("set_$(name)!")
-        push!(exprs, :($getter(obj::$super) = obj.$name))
-        push!(exprs, :($setter(obj::$super, value::$argtype) = (obj.$name = value)))
+        if emit_getters
+            getter = Symbol("$(get_pre)$(name)$(get_suf)")
+            push!(exprs, :($getter(obj::$super) = obj.$name))
+        end
+
+        if emit_setters
+            setter = Symbol("$(set_pre)$(name)$(set_suf)")
+            push!(exprs, :($setter(obj::$super, value::$argtype) = (obj.$name = value)))
+        end
     end
     return exprs
 end
 
-macro class(elements...)
-    # @info "elements: $elements"
-    mutable = (elements[1] == :mutable)
-    if mutable
-        elements = elements[2:end]
+function _parse_meta_args(elements)
+    elt1 = elements[1]
+    meta_args = copy(class_defaults)
+
+    # allow simpler `@class mutable Name ...` syntax
+    if elt1 == :mutable
+        meta_args[:mutable] = true
+        return (elements[2:end], meta_args)
+    end
+    
+    if @capture(elt1, (exprs__,) | (name_ => value_))
+        elements = elements[2:end]          # remove first element since we process it here
+
+        if exprs === nothing
+            exprs = (:($name => $value),)   # unified format for the loop that follows
+        end
+
+        for elt in exprs
+            @capture(elt, name_ => value_) || error("@class meta variables must be a tuple of pairs: got $exprs")
+            haskey(meta_args, name)        || error("Unknown @class meta variable name $name")
+
+            meta_args[name] = (value in (:true, :false) ? eval(value) : value)
+        end
     end
 
+    return (elements, meta_args)
+end
+
+macro class(elements...)
+    (elements, meta_args) = _parse_meta_args(elements)
     len = length(elements)
-    
+   
     if len == 1                       # no fields defined
         name_expr = elements[1]
         definition = quote end
@@ -199,10 +251,14 @@ macro class(elements...)
     # @info "name: $name_expr"
     # @info "def: $definition"
 
+    # Not required (@capture sets unmatched vars to nothing) but explicit 
+    # assignment keeps the editor from complaining about undef'd vars.
+    cls = supercls = wheres = exprs = nothing
+
     if ! @capture(definition, begin exprs__ end)
         error("@class $name_expr: badly formatted @class expression: $exprs")
     end
-
+    
     # allow for optional type params and supertype
     if ! @capture(name_expr, ((cls_{wheres__}  | cls_) <: supercls_) | (cls_{wheres__} | cls_))
         error("Unrecognized class name expression: $name_expr")
@@ -223,6 +279,7 @@ macro class(elements...)
         end
     end
 
+    mutable = meta_args[:mutable]
     _register_class(cls, supercls, mutable, fields)
 
     all_fields = _all_ivars(cls) # including parents' fields, recursively
@@ -242,10 +299,10 @@ macro class(elements...)
         end
     )
 
-    accessors = _accessors(cls)
-
     # toggles definition between mutable and immutable struct
     struct_def.args[1] = mutable
+
+    accessors = _accessors(cls, meta_args)
 
     result = quote
         abstract type $abs_class <: $abs_super end
