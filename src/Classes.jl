@@ -5,7 +5,7 @@ using InteractiveUtils: subtypes
 
 export @class, @method, classof, superclass, superclasses, issubclass, subclasses, absclass, class_info, Class, _Class_
 
-# Default values for meta-options to @class
+# Default values for meta-options to @class to control what the macro emits
 class_defaults = Dict(
     :mutable => false,
     :getters => true,
@@ -207,38 +207,33 @@ function _accessors(cls, meta_args)
     return exprs
 end
 
-function _parse_meta_args(elements)
-    elt1 = elements[1]
+function _parse_meta_args(cls, exprs, mutable)
     meta_args = copy(class_defaults)
 
-    # allow simpler `@class mutable Name ...` syntax
-    if elt1 == :mutable
-        meta_args[:mutable] = true
-        return (elements[2:end], meta_args)
-    end
+    exprs === nothing && return meta_args
     
-    if @capture(elt1, (exprs__,) | (name_ => value_))
-        elements = elements[2:end]          # remove first element since we process it here
-
-        if exprs === nothing
-            exprs = (:($name => $value),)   # unified format for the loop that follows
+    for elt in exprs
+        @capture(elt, name_ = value_) || error("@class $cls: Meta variables must be a tuple of keyword assignments: got $exprs")
+        haskey(meta_args, name)       || error("@class $cls: Unknown meta variable name '$name'. Possible values are: $(Tuple(keys(class_defaults)))")
+        
+        # handle corner case of `@class mutable Foo(mutable=false)`
+        if (mutable && name === :mutable && value == :false)
+            error("Conflicting settings for 'mutable' in class $cls")
         end
 
-        for elt in exprs
-            @capture(elt, name_ => value_) || error("@class meta variables must be a tuple of pairs: got $exprs")
-            haskey(meta_args, name)        || error("Unknown @class meta variable name $name")
-
-            meta_args[name] = (value in (:true, :false) ? eval(value) : value)
-        end
+        meta_args[name] = (value in (:true, :false) ? eval(value) : value)
     end
 
-    return (elements, meta_args)
+    return meta_args
 end
 
 macro class(elements...)
-    (elements, meta_args) = _parse_meta_args(elements)
+    # allow `@class mutable Foo` syntax
+    if (mutable = (elements[1] == :mutable))
+        elements = elements[2:end]
+    end
+
     len = length(elements)
-   
     if len == 1                       # no fields defined
         name_expr = elements[1]
         definition = quote end
@@ -247,23 +242,19 @@ macro class(elements...)
     else
         error("Unrecognized form for @class definition: $elements")
     end
-   
-    # @info "name: $name_expr"
-    # @info "def: $definition"
-
-    # Not required (@capture sets unmatched vars to nothing) but explicit 
-    # assignment keeps the editor from complaining about undef'd vars.
-    cls = supercls = wheres = exprs = nothing
 
     if ! @capture(definition, begin exprs__ end)
         error("@class $name_expr: badly formatted @class expression: $exprs")
     end
     
     # allow for optional type params and supertype
-    if ! @capture(name_expr, ((cls_{wheres__}  | cls_) <: supercls_) | (cls_{wheres__} | cls_))
-        error("Unrecognized class name expression: $name_expr")
+    if ! (@capture(name_expr, ((clsexpr_{wheres__}  | clsexpr_) <: supercls_) | (clsexpr_{wheres__} | clsexpr_)) &&
+          (@capture(clsexpr, cls_(arglist__)) || @capture(clsexpr, cls_Symbol)))
+        error("Unrecognized class name expression: `$name_expr`")
     end
 
+    meta_args = _parse_meta_args(cls, arglist, mutable)
+    
     supercls = (supercls === nothing ? :Class : supercls)
     wheres   = (wheres === nothing ? [] : wheres)
 
@@ -325,14 +316,6 @@ macro class(elements...)
     push!(result.args, expr)
     return esc(result)
 end
-
-#=
-    @method get_foo(obj::MyClass) obj.foo
-->
-    get_foo(obj::T) where T <: _MyClass_
-    
-so it works on subclasses, too.
-=#
 
 macro method(funcdef)
     parts = splitdef(funcdef)

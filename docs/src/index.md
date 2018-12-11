@@ -52,16 +52,22 @@ in several forms:
   and any of its subclasses.
 
 Whether to emit these functions, and, if so, how to name them can be controlled by
-passing a tuple of "meta-parameters" as the first argument to `@class` as in this
-example:
+passing a tuple of "meta-parameters" after the class name in the call to `@class`,
+as in this example:
 
 ```
-@class (setters=>false, getter_prefix=>"") ClassName <: SuperClass ... 
+@class ClassName(setters=false, getter_prefix="") <: SuperClass ... 
 ```
 
+#### The 'mutable' keyword
 
-Note that if the tuple argument is used, the `mutable` keyword must also be passed in 
-the tuple, e.g., as `(mutable=>true, setters=>false)`
+Class mutability can be specified two ways:
+1. As a keyword before the class name, as in `@class mutable MyClass ...`
+2. In the meta-args, as in `@class MyClass(mutable=true)`
+
+Note that disagreement between the explicit keyword and the meta-args is not allowed:
+`@class mutable Foo(mutable=false)` will raise an error, whereas `@class mutable Foo(mutable=True)`
+and `@class Foo(mutable=false)` are valid (and redundant.)
 
 Use this to set the following options (the default values are shown):
 ```
@@ -73,6 +79,8 @@ Use this to set the following options (the default values are shown):
     setter_prefix=>"set_"   # Prefix to use for setter functions
     setter_suffix=>"!"      # Suffix to use for setter functions
 ```
+
+#### Reflection methods
 
 * `issubclass(class, superclass)`
 
