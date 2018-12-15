@@ -43,7 +43,7 @@ is a subtype of the abstract type associated with the superclass of `Foo`.
 Given these two class definitions (note that `Class` is defined in `Classes.jl`):
 
 ```
-import Classes
+using Classes
 
 @class Foo <: Class begin       # or, equivalently, @class Foo begin ... end
    foo::Int
