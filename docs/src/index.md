@@ -37,9 +37,11 @@ in several forms:
 
 ### Support methods
 
-* By default, the `@class` macro generates "getter" and "setter" functions for all locally
-  defined fields in each class. For example, For a class `Foo` with local field `foo::T`, 
-  two functions are generated:
+#### Structure field accessor function
+
+* By default, the `@class` macro generates "getter" and "setter" functions
+  for all locally defined fields in each class. For example, For a class `Foo` with local field 
+  `foo::T`, two functions are generated:
 
   ```
     # "getter" function
@@ -59,6 +61,34 @@ as in this example:
 @class ClassName(setters=false, getter_prefix="") <: SuperClass ... 
 ```
 
+Use this to set the following options (the default values are shown):
+```
+    mutable = false          # Whether to generate a mutable struct
+    setters = true           # Whether to generate setter functions
+    getters = true           # Whether to generate getter functions
+    getter_prefix = "get_"   # Prefix to use for getter functions
+    getter_suffix = ""       # Suffix to use for getter functions
+    setter_prefix = "set_"   # Prefix to use for setter functions
+    setter_suffix = "!"      # Suffix to use for setter functions
+```
+
+Names of getter and setter methods for a field `foo` are composed as follows:
+
+```
+    $(getter_prefix)foo$(getter_suffix) # getter name for `foo`
+    $(setter_prefix)foo$(setter_suffix) # setter name for `foo`
+```
+
+If both meta-args and type parameters are used in the class definition, the meta-args
+must come between the class name and the type parameters, e.g.,
+
+```
+@class Foo(mutable=true, setters=false){T <: SomeClass} begin
+    i::Int
+    f::Float64
+end
+```
+
 #### The 'mutable' keyword
 
 Class mutability can be specified two ways:
@@ -69,16 +99,6 @@ Note that disagreement between the explicit keyword and the meta-args is not all
 `@class mutable Foo(mutable=false)` will raise an error, whereas `@class mutable Foo(mutable=True)`
 and `@class Foo(mutable=false)` are valid (and redundant.)
 
-Use this to set the following options (the default values are shown):
-```
-    mutable=>false          # Whether to generate a mutable struct
-    setters=>true           # Whether to generate setter functions
-    getters=>true           # Whether to generate getter functions
-    getter_prefix=>"get_"   # Prefix to use for getter functions
-    getter_suffix=>""       # Suffix to use for getter functions
-    setter_prefix=>"set_"   # Prefix to use for setter functions
-    setter_suffix=>"!"      # Suffix to use for setter functions
-```
 
 #### Reflection methods
 
@@ -90,6 +110,15 @@ Use this to set the following options (the default values are shown):
 * `superclass(class)`
 
    Returns the superclass of the newly defined class.
+
+* `show_all_accessors()`
+
+  Prints a list of all accessor functions generated for all classes.
+
+* `show_accessors(class)`
+
+  * Prints a list of the accesor functions generated for `class`, which
+    can be a symbol or the type of a concrete class.
 
 ### Example
 

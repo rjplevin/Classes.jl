@@ -1,3 +1,4 @@
+using Test
 using Classes
 
 @class Foo(getter_prefix="") <: Class begin
