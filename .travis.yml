@@ -14,7 +14,7 @@ branches:
 script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
   - if [[ `uname` = "Linux" ]]; then TESTCMD="xvfb-run julia"; else TESTCMD="julia"; fi
-  - $TESTCMD --check-bounds=yes -e 'using Pkg; Pkg.clone(pwd()); Pkg.build("Classes"); Pkg.test("Classes"; coverage=true)'  
+  - $TESTCMD --check-bounds=yes -e 'using Pkg; Pkg.clone("https://github.com/rjplevin/Classes.jl.git"); Pkg.build("Classes"); Pkg.test("Classes"; coverage=true)'  
 matrix:
   allow_failures:
   - julia: nightly
