@@ -10,10 +10,15 @@ notifications:
 branches:
   only:
   - master
-  - /v(\d+)\.(\d+)\.(\d+)/   
+  - /v(\d+)\.(\d+)\.(\d+)/
+script:
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - if [[ `uname` = "Linux" ]]; then TESTCMD="xvfb-run julia"; else TESTCMD="julia"; fi
+  - $TESTCMD --check-bounds=yes -e 'using Pkg; Pkg.clone(pwd()); Pkg.build("Classes"); Pkg.test("Classes"; coverage=true)'  
 matrix:
   allow_failures:
   - julia: nightly
   fast_finish: true
 after_success:
-- julia -e 'cd(Pkg.dir("Classes")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+  - julia -e 'using Pkg; cd(Pkg.dir("Classes")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+  - julia -e 'using Pkg; cd(Pkg.dir("Classes")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(process_folder())'
