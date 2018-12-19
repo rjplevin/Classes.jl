@@ -45,12 +45,12 @@ in several forms:
 
   ```
     # "getter" function
-    get_foo(obj::_Foo_) = obj.foo
+    get_foo(obj::AbstractFoo) = obj.foo
 
     # "setter" function
-    set_foo!(obj::_Foo_, value::T) = (obj.foo = foo)
+    set_foo!(obj::AbstractFoo, value::T) = (obj.foo = foo)
   ```
-  Note that these are defined on objects of type `_Foo_`, so they can be used on `Foo`
+  Note that these are defined on objects of type `AbstractFoo`, so they can be used on `Foo`
   and any of its subclasses.
 
 Whether to emit these functions, and, if so, how to name them can be controlled by
@@ -153,7 +153,7 @@ Produces the following methods:
 ```
 # Custom constructors defined inside the @class above
 Foo()
-Foo(self::_Foo_)
+Foo(self::AbstractFoo)
 
 #
 # Methods emitted by @class macro for Foo
@@ -163,17 +163,17 @@ Foo(self::_Foo_)
 Foo(foo::Int64)
 
 # local-field initializer
-Foo(self::T, foo::Int64) where T<:_Foo_ 
+Foo(self::T, foo::Int64) where T<:AbstractFoo
 
 # field accessors
-get_foo(obj::_Foo_) = obj.foo
-set_foo!(obj::_Foo_, value::Int) = (obj.foo = value)
+get_foo(obj::AbstractFoo) = obj.foo
+set_foo!(obj::AbstractFoo, value::Int) = (obj.foo = value)
 
 # Custom constructor defined inside the @class above
 Bar()
 
 # Custom initializer defined inside the @class above
-Bar(self::Union{Nothing, _Bar_})
+Bar(self::Union{Nothing, AbstractBar})
 
 #
 # Methods emitted by @class macro for Bar
@@ -183,17 +183,17 @@ Bar(self::Union{Nothing, _Bar_})
 Bar(foo::Int64, bar::Int64)
 
 # local-fields initializer
-Bar(self::T, bar::Int64) where T<:_Bar_
+Bar(self::T, bar::Int64) where T<:AbstractBar
 
 # all fields initializer
-Bar(self::T, foo::Int64, bar::Int64) where T<:_Bar_  
+Bar(self::T, foo::Int64, bar::Int64) where T<:AbstractBar 
 
 #  Superclass-copy initializer 
 Bar(bar::Int64, s::Foo)
 
 # field accessors
-get_bar(obj::_Bar_) = obj.bar
-set_bar!(obj::_Bar_, value::Int) = (obj.bar = value)
+get_bar(obj::AbstractBar) = obj.bar
+set_bar!(obj::AbstractBar, value::Int) = (obj.bar = value)
 ```
 
 ## Example from Mimi
@@ -203,7 +203,7 @@ subclass relationships, which exist outside the julia type system.
 
 ![Mimi component structure](figs/Classes.png)
 
-Each class as a corresponding "shadow" abstract supertype (of the same name surrounded by underscores) which is a parent to all abstract supertypes of its subclasses. The subclasses of, say, `ComponentDef` are all subtypes of `_ComponentDef_`, thus methods defined as
+Each class as a corresponding "shadow" abstract supertype (of the same name surrounded by underscores) which is a parent to all abstract supertypes of its subclasses. The subclasses of, say, `ComponentDef` are all subtypes of `AbstractComponentDef`, thus methods defined as
 
 ```
 @method function foo(obj::ComponentDef)
@@ -214,7 +214,7 @@ end
 are emitted essentially as the following:
 
 ```
-function foo(obj::T) where {T <: _ComponentDef_}
+function foo(obj::T) where {T <: AbstractComponentDef}
     ...
 end
 ```

@@ -86,7 +86,7 @@ set_foo!(z, 1000)
   s::Symbol
 end
 
-@test hasmethod(SET_s!, (_Buzz_, Symbol))
+@test hasmethod(SET_s!, (AbstractBuzz, Symbol))
 @test hasmethod(GET_s,  (Buzz,))
 
 # Verify that default method doesn't exist
