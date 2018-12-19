@@ -327,8 +327,6 @@ macro class(elements...)
     abs_class = _absclass(cls)
     abs_super = _absclass(supercls)
 
-    # TBD: Modify this to add "local" constructor, calling parent if superclass(x) != Class
-
     # add default constructors
     append!(ctors, _constructors(cls, wheres))
 
