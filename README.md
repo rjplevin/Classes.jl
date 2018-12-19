@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/rjplevin/Classes.jl.svg?branch=master)](https://travis-ci.org/rjplevin/Classes.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/github/rjplevin/Classes.jl?branch=master&?svg=true)](https://ci.appveyor.com/projects/rjplevin/Classes.jl/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/github/rjplevin/Classes.jl?branch=master&?svg=true)](https://ci.appveyor.com/project/rjplevin/classes-jl/branch/master)
 [![codecov](https://codecov.io/gh/rjplevin/Classes.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/rjplevin/Classes.jl)
 
 # Classes.jl
