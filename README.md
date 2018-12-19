@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/rjplevin/Classes.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/rjplevin/Classes.jl)
+
 # Classes.jl
 A simple, Julian approach to inheritance of structure and methods.
 
