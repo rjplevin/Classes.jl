@@ -4,7 +4,7 @@ using DataStructures
 using MacroTools
 using InteractiveUtils: subtypes
 
-export @class, @method, Class, _Class_, classof, superclass, superclasses, issubclass, subclasses, 
+export @class, @method, Class, AbstractClass, classof, superclass, superclasses, issubclass, subclasses, 
     absclass, class_info, show_accessors, show_all_accessors
 
 # Default values for meta-args to @class to control what the macro emits
@@ -18,8 +18,8 @@ _default_meta_args = Dict(
     :setter_suffix => "!"
 )
 
-abstract type _Class_ end            # supertype of all shadow class types
-abstract type Class <: _Class_ end   # superclass of all concrete classes
+abstract type AbstractClass end            # supertype of all shadow class types
+abstract type Class <: AbstractClass end   # superclass of all concrete classes
 
 mutable struct ClassInfo
     name::Symbol
@@ -44,7 +44,7 @@ end
 _set_module!(info::ClassInfo, m::Module) = (info.class_module = m)
 
 class_info(name::Symbol) = _classes[name]
-class_info(::Type{T}) where {T <: _Class_} = class_info(nameof(T))
+class_info(::Type{T}) where {T <: AbstractClass} = class_info(nameof(T))
 
 # Gets cumulative set of instance vars including those in all superclasses
 function _all_ivars(cls::Symbol)
@@ -55,7 +55,7 @@ function _all_ivars(cls::Symbol)
 end
 
 """
-    show_accessors(cls::Union{Symbol, _Class_})
+    show_accessors(cls::Union{Symbol, AbstractClass})
 
 Print the accessor functions emitted for the given class `cls`.
 """
@@ -65,7 +65,7 @@ function show_accessors(cls::Symbol)
     end
 end
 
-show_accessors(class::_Class_) = show_accessors(nameof(class))
+show_accessors(class::AbstractClass) = show_accessors(nameof(class))
 
 function show_all_accessors()
     for cls in keys(_classes)
@@ -88,7 +88,7 @@ Returns a vector of superclasses from the superclass of the current class
 to `Class`, in order.
 """
 superclasses(t::Type{Class}) = []
-superclasses(t::Type{T} where {T <: _Class_}) = [superclass(t), superclasses(superclass(t))...]
+superclasses(t::Type{T} where {T <: AbstractClass}) = [superclass(t), superclasses(superclass(t))...]
 
 # catch-all
 """
@@ -97,17 +97,17 @@ superclasses(t::Type{T} where {T <: _Class_}) = [superclass(t), superclasses(sup
 Returns `true` if `t1` is a subclass of `t2`, else false.
 """
 # identity
-issubclass(::Type{T}, ::Type{T}) where {T <: _Class_} = true
+issubclass(::Type{T}, ::Type{T}) where {T <: AbstractClass} = true
 
-issubclass(::Type{T1}, ::Type{T2}) where {T1 <: _Class_, T2 <: _Class_} = T1 in Set(superclasses(T2))
+issubclass(::Type{T1}, ::Type{T2}) where {T1 <: AbstractClass, T2 <: AbstractClass} = T1 in Set(superclasses(T2))
 
 """
-    classof(::Type{T}) where {T <: _Class_}
+    classof(::Type{T}) where {T <: AbstractClass}
 
 Compute the concrete class associated with a shadow abstract class, which must
-be a subclass of _Class_.
+be a subclass of AbstractClass.
 """
-function classof(::Type{T}) where {T <: _Class_}
+function classof(::Type{T}) where {T <: AbstractClass}
     if isconcretetype(T)
         return T
     end
@@ -124,11 +124,11 @@ function classof(::Type{T}) where {T <: _Class_}
 end
 
 """
-    subclasses(::Type{T}) where {T <: _Class_}
+    subclasses(::Type{T}) where {T <: AbstractClass}
 
 Compute the vector of subclasses for a given class.
 """
-function subclasses(::Type{T}) where {T <: _Class_}
+function subclasses(::Type{T}) where {T <: AbstractClass}
     # immediate supertype is "our" entry in the type hierarchy
     super = supertype(T)
     
@@ -139,14 +139,14 @@ function subclasses(::Type{T}) where {T <: _Class_}
     return [subs; [subclasses(t) for t in subs]...]
 end
 
-_absclass(cls::Symbol) = Symbol("_$(cls)_")
+_absclass(cls::Symbol) = Symbol("Abstract$(cls)")
 
 """
-    absclass(::Type{T}) where {T <: _Class_}
+    absclass(::Type{T}) where {T <: AbstractClass}
 
 Returns the abstract type for the concrete class for `T`
 """
-function absclass(::Type{T}) where {T <: _Class_}
+function absclass(::Type{T}) where {T <: AbstractClass}
     return isabstracttype(T) ? error("absclass(T) must be called on concrete classes. $T is abstract class type") : supertype(T)
 end
 
