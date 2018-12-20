@@ -1,5 +1,8 @@
 using Test
 using Classes
+using Suppressor
+
+@test superclass(Class) === nothing
 
 @class Foo(getter_prefix="") <: Class begin
    foo::Int
@@ -12,6 +15,28 @@ using Classes
         self.foo = 0
     end
 end
+
+@test classof(AbstractFoo) == Foo
+@test classof(Foo) == Foo
+
+expected = """foo(obj::AbstractFoo) = begin
+    obj.foo
+end
+set_foo!(obj::AbstractFoo, value::Int) = begin
+    obj.foo = value
+end
+"""
+
+output = @capture_out begin
+    show_accessors(Foo)
+end
+
+function clean_str(s)
+    s = replace(s, r"\n" => " ")
+    s = replace(s, r"\s\s+" => " ")
+end
+
+@test clean_str(expected) == clean_str(output)
 
 @class mutable Bar <: Foo begin
     bar::Int
@@ -41,6 +66,7 @@ end
     return foo(obj) + get_bar(obj)
 end
 
+@test Set(superclasses(Baz)) == Set([Foo, Bar, Class])
 @test Set(subclasses(Foo)) == Set(Any[Bar, Baz])
 
 x = Foo(1)
@@ -104,3 +130,7 @@ b = Blub(10, 20.)
 @test my_integer(b) == 10
 
 @test_throws UndefVarError set_i!(b, 0)
+
+struct NotAllowed <: AbstractFoo end
+
+@test_throws Exception classof(AbstractFoo)

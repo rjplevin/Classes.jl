@@ -33,9 +33,7 @@ mutable struct ClassInfo
     end
 end
 
-ClassInfo(name::Symbol) = ClassInfo(name, nothing, Expr[], _default_meta_args)
-
-_classes = OrderedDict{Symbol, ClassInfo}(:Class => ClassInfo(:Class))
+_classes = OrderedDict{Symbol, ClassInfo}(:Class => ClassInfo(:Class, nothing, Expr[], _default_meta_args))
 
 function _register_class(name::Symbol, super::Symbol, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
     _classes[name] = ClassInfo(name, super, ivars, meta_args)
@@ -65,7 +63,7 @@ function show_accessors(cls::Symbol)
     end
 end
 
-show_accessors(class::AbstractClass) = show_accessors(nameof(class))
+show_accessors(::Type{T}) where {T <: AbstractClass} = show_accessors(nameof(T))
 
 function show_all_accessors()
     for cls in keys(_classes)
@@ -79,16 +77,25 @@ end
 Returns the type of the concrete superclass of the given class, or `nothing`
 for `Class`, which is the root of the class hierarchy.
 """
-superclass(t::Type{Class}) = nothing
+superclass(::Type{Class}) = nothing
+
+function superclass(::Type{T}) where {T <: AbstractClass}
+    isabstracttype(T) && error("superclass must be called on a concrete type, not $T")
+    return supertype(T)
+end
 
 """
-    superclasses(t::Type{Class})
+    superclasses(::Type{T}) where {T <: AbstractClass}
 
 Returns a vector of superclasses from the superclass of the current class
 to `Class`, in order.
 """
-superclasses(t::Type{Class}) = []
-superclasses(t::Type{T} where {T <: AbstractClass}) = [superclass(t), superclasses(superclass(t))...]
+superclasses(::Type{Class}) = []
+
+function superclasses(::Type{T}) where {T <: AbstractClass}
+    super = superclass(T)
+    [super, superclasses(super)...]
+end
 
 # catch-all
 """
@@ -349,6 +356,7 @@ macro class(elements...)
         let info = class_info($cls)
             Classes._set_module!(info, @__MODULE__)
         end
+        Classes.superclass(::Type{$cls}) = $supercls
         $cls    # return the struct type
     end
 
