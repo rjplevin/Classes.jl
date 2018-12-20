@@ -79,11 +79,6 @@ for `Class`, which is the root of the class hierarchy.
 """
 superclass(::Type{Class}) = nothing
 
-function superclass(::Type{T}) where {T <: AbstractClass}
-    isabstracttype(T) && error("superclass must be called on a concrete type, not $T")
-    return supertype(T)
-end
-
 """
     superclasses(::Type{T}) where {T <: AbstractClass}
 

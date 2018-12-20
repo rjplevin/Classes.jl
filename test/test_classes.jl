@@ -109,6 +109,12 @@ set_foo!(z, 1000)
 # when the macro is expanded, before @test_throws can catch it. Better way?
 @test_throws(LoadError, eval(Meta.parse("@class mutable XX(mutable=false)")))
 
+# Test other @class structural errors
+@test_throws(LoadError, eval(Meta.parse("@class Foo x y")))
+
+@test_throws(LoadError, eval(Meta.parse("@class Foo begin end")))
+
+
 #
 # Test generation of custom accessors
 #
@@ -197,3 +203,27 @@ n = NoAccessors(10, 11)
 acc = Classes._accessors(:NoAccessors)
 
 @test length(acc) == 0
+
+# Test that parameterized type is handled properly
+@class TupleHolder(getters=false, setters=false){NT <: NamedTuple} begin
+    nt::NT
+end
+
+nt = (foo=1, bar=2)
+NT = typeof(nt)
+th = TupleHolder{NT}(nt)
+
+@test typeof(th).parameters[1] == NT
+@test th.nt.foo == 1
+@test th.nt.bar == 2
+
+# Test updating using instance of parent class
+bar = Bar(1, 2)
+baz = Baz(100, 101, 102)
+
+upd = Baz(555, bar)
+@test upd.foo == 1 && upd.bar == 2 && upd.baz == 555
+
+# Test method structure
+# "First argument of method whatever must be explicitly typed"
+@test_throws(LoadError, eval(Meta.parse("@method whatever(i) = i")))
