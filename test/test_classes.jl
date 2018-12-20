@@ -107,13 +107,10 @@ set_foo!(z, 1000)
 # Test the corner case of conflicting mutability declarations.
 # The eval(parse(string)) form is necessary; otherwise the error is raised
 # when the macro is expanded, before @test_throws can catch it. Better way?
-@test_throws(LoadError, eval(Meta.parse("@class mutable XX(mutable=false)")))
+@test_throws(LoadError, eval(Meta.parse("@class mutable X1(mutable=false)")))
 
 # Test other @class structural errors
-@test_throws(LoadError, eval(Meta.parse("@class Foo x y")))
-
-@test_throws(LoadError, eval(Meta.parse("@class Foo begin end")))
-
+@test_throws(LoadError, eval(Meta.parse("@class X2 x y")))
 
 #
 # Test generation of custom accessors
