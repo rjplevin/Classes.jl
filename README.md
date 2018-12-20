@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.org/rjplevin/Classes.jl.svg?branch=master)](https://travis-ci.org/rjplevin/Classes.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/github/rjplevin/Classes.jl?branch=master&?svg=true)](https://ci.appveyor.com/project/rjplevin/classes-jl/branch/master)
 [![codecov](https://codecov.io/gh/rjplevin/Classes.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/rjplevin/Classes.jl)
+[![Coverage Status](https://coveralls.io/repos/github/rjplevin/Classes.jl/badge.svg?branch=master)](https://coveralls.io/github/rjplevin/Classes.jl?branch=master)
 
 # Classes.jl
 A simple, Julian approach to inheritance of structure and methods.
