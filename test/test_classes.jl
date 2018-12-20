@@ -19,6 +19,10 @@ end
 @test classof(AbstractFoo) == Foo
 @test classof(Foo) == Foo
 
+@test superclass(Foo) == Class
+@test_throws Exception superclass(AbstractFoo)
+
+
 expected = """foo(obj::AbstractFoo) = begin
     obj.foo
 end
@@ -134,3 +138,62 @@ b = Blub(10, 20.)
 struct NotAllowed <: AbstractFoo end
 
 @test_throws Exception classof(AbstractFoo)
+
+
+expected = """foo(obj::AbstractFoo) = begin
+    obj.foo
+end
+set_foo!(obj::AbstractFoo, value::Int) = begin
+    obj.foo = value
+end
+get_bar(obj::AbstractBar) = begin
+    obj.bar
+end
+set_bar!(obj::AbstractBar, value::Int) = begin
+    obj.bar = value
+end
+get_baz(obj::AbstractBaz) = begin
+    obj.baz
+end
+set_baz!(obj::AbstractBaz, value::Int) = begin
+    obj.baz = value
+end
+GET_s(obj::AbstractBuzz) = begin
+    obj.s
+end
+SET_s!(obj::AbstractBuzz, value::Symbol) = begin
+    obj.s = value
+end
+my_integer(obj::AbstractBlub) = begin
+    obj.my_integer
+end
+my_float(obj::AbstractBlub) = begin
+    obj.my_float
+end
+"""
+
+output = @capture_out begin
+    show_all_accessors()
+end
+
+function clean_str(s)
+    s = replace(s, r"\n" => " ")
+    s = replace(s, r"\s\s+" => " ")
+end
+
+@test clean_str(expected) == clean_str(output)
+
+# Test initializer
+Baz(z, 111)
+@test z.baz == 111
+
+@class NoAccessors(getters=false, setters=false) begin
+  a::Int
+  b::Int
+end
+
+n = NoAccessors(10, 11)
+
+acc = Classes._accessors(:NoAccessors)
+
+@test length(acc) == 0
