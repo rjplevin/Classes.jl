@@ -221,12 +221,12 @@ upd = Baz(bar, 555)
 @test upd.foo == 1 && upd.bar == 2 && upd.baz == 555
 
 # ...and with parameterized types
-@class TupleSubHolder <: TupleHolder begin
-    i::Int
+@class SubTupleHolder(getters=false, setters=false){NT <: NamedTuple} <: Baz begin
+    nt::NT
 end
 
-tupsub = TupleSubHolder(th, 10)
-@test tupsub.nt.foo == 1 && tupsub.nt.bar == 2 && tupsub.i == 10
+sub = SubTupleHolder{NT}(z, nt)
+@test sub.nt.foo == 1 && sub.nt.bar == 2 && sub.foo == 1000 && sub.bar == 101 && sub.baz == 111
 
 # Test method structure
 # "First argument of method whatever must be explicitly typed"
