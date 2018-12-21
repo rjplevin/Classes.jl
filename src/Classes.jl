@@ -207,10 +207,10 @@ function _constructors(class, wheres)
         all_args = [super_args; local_args]
 
         immut_init = length(params) > 0 ? :(
-            function $class{$(params...)}($(local_fields...), s::$(info.super)) where {$(wheres...)}
+            function $class{$(params...)}(s::$(info.super), $(local_fields...)) where {$(wheres...)}
                 new{$(params...)}($(all_args...))
             end) : :(
-            function $class($(local_fields...), s::$(info.super))
+            function $class(s::$(info.super), $(local_fields...))
                 new($(all_args...))
             end)
         push!(methods, immut_init)

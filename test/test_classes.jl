@@ -196,7 +196,6 @@ Baz(z, 111)
 end
 
 n = NoAccessors(10, 11)
-
 acc = Classes._accessors(:NoAccessors)
 
 @test length(acc) == 0
@@ -218,8 +217,16 @@ th = TupleHolder{NT}(nt)
 bar = Bar(1, 2)
 baz = Baz(100, 101, 102)
 
-upd = Baz(555, bar)
+upd = Baz(bar, 555)
 @test upd.foo == 1 && upd.bar == 2 && upd.baz == 555
+
+# ...and with parameterized types
+@class TupleSubHolder <: TupleHolder begin
+    i::Int
+end
+
+tupsub = TupleSubHolder(th, 10)
+@test tupsub.nt.foo == 1 && tupsub.nt.bar == 2 && tupsub.i == 10
 
 # Test method structure
 # "First argument of method whatever must be explicitly typed"
