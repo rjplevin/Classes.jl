@@ -294,9 +294,7 @@ macro class(elements...)
         error("Unrecognized form for @class definition: $elements")
     end
 
-    if ! @capture(definition, begin exprs__ end)
-        error("@class $name_expr: badly formatted @class expression: $exprs")
-    end
+    @capture(definition, begin exprs__ end)
     
     # allow for optional type params and supertype
     if ! (@capture(name_expr, ((clsexpr_{wheres__}  | clsexpr_) <: supercls_) | (clsexpr_{wheres__} | clsexpr_)) &&

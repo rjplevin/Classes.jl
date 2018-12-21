@@ -111,6 +111,7 @@ set_foo!(z, 1000)
 
 # Test other @class structural errors
 @test_throws(LoadError, eval(Meta.parse("@class X2 x y")))
+@test_throws(LoadError, eval(Meta.parse("@class (:junk,)")))
 
 #
 # Test generation of custom accessors
@@ -141,7 +142,6 @@ b = Blub(10, 20.)
 struct NotAllowed <: AbstractFoo end
 
 @test_throws Exception classof(AbstractFoo)
-
 
 expected = """foo(obj::AbstractFoo) = begin
     obj.foo
