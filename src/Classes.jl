@@ -21,7 +21,13 @@ _default_meta_args = Dict(
 abstract type AbstractClass end            # supertype of all shadow class types
 abstract type Class <: AbstractClass end   # superclass of all concrete classes
 
+struct ClassKey
+    clsmodule::Module
+    clsname::Symbol
+end
+
 mutable struct ClassInfo
+<<<<<<< Updated upstream
     clsmodule::Union{Nothing, Module}
     clsname::Symbol
     super::Union{Nothing, Symbol}
@@ -45,6 +51,27 @@ _classes = OrderedDict{Tuple{Module, Symbol}, ClassInfo}()
 function _register_class(info::ClassInfo)
     key = (info.clsmodule, info.clsname)
     _classes[key] = info
+=======
+    key::ClassKey
+    super::Union{Nothing, ClassKey}
+    ivars::Vector{Expr}
+    meta_args::Dict{Symbol, Any}
+
+    function ClassInfo(key::ClassKey, super::Union{Nothing, ClassKey}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
+        new(key, name, super, ivars, meta_args)
+    end
+
+    function ClassInfo(m::Module, name::Symbol, super::Union{Nothing, ClassKey}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
+        ClassInfo(ClassKey(m, name), super, ivars, meta_args)
+    end
+end
+
+_class_key = ClassKey(Classes, :Class)
+_classes = OrderedDict{ClassKey, ClassInfo}(_class_key => ClassInfo(_class_key, nothing, Expr[], _default_meta_args))
+
+function __init__()
+    _register_class()
+>>>>>>> Stashed changes
 end
 
 function _register_class(clsmodule::Module, clsname::Symbol, super::Symbol, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
@@ -61,9 +88,13 @@ class_info(clsmodule::Module, ::Type{T}) where {T <: AbstractClass} = class_info
 
 # Gets cumulative set of instance vars including those in all superclasses
 function _all_ivars(clsmodule::Module, clsname::Symbol)
+<<<<<<< Updated upstream
     info = class_info(clsmodule::Module, clsname)
+=======
+    info = class_info(clsmodule, clsname)
+>>>>>>> Stashed changes
     supercls = info.super
-    parent_fields = (supercls === nothing ? [] : _all_ivars(supercls))
+    parent_fields = (supercls === nothing ? [] : _all_ivars(clsmodule, supercls))
     return [parent_fields; info.ivars]
 end
 
@@ -186,30 +217,30 @@ function _initializer(class, fields, wheres)
     return funcdef
 end
 
-function _constructors(class, wheres)
-    info = class_info(class)
+function _constructors(clsmodule, clsname, wheres)
+    info = class_info(clsmodule, clsname)
     local_fields = info.ivars
-    all_fields = _all_ivars(class)
+    all_fields = _all_ivars(clsname)
 
     args = _argnames(all_fields)
     params = [clause.args[1] for clause in wheres]  # extract parameter names from where clauses
 
     dflt = length(params) > 0 ? :(
-        function $class{$(params...)}($(all_fields...)) where {$(wheres...)}
+        function $clsname{$(params...)}($(all_fields...)) where {$(wheres...)}
             new{$(params...)}($(args...))
         end) : :(
-        function $class($(all_fields...))
+        function $clsname($(all_fields...))
             new($(args...))
         end)
         
-    init_all = _initializer(class, all_fields, wheres)
+    init_all = _initializer(clsname, all_fields, wheres)
     methods = [dflt, init_all]
 
-    # If class is a direct subclasses of Classes.Class, it has no fields
+    # If clsname is a direct subclasses of Classes.Class, it has no fields
     # other than those defined locally, so the two methods would be identical.
     # In this case, we emit only one of them.
     if all_fields != local_fields
-        init_local = _initializer(class, local_fields, wheres)
+        init_local = _initializer(clsname, local_fields, wheres)
         push!(methods, init_local)
     end
 
@@ -222,10 +253,10 @@ function _constructors(class, wheres)
         all_args = [super_args; local_args]
 
         immut_init = length(params) > 0 ? :(
-            function $class{$(params...)}(s::$(info.super), $(local_fields...)) where {$(wheres...)}
+            function $clsname{$(params...)}(s::$(info.super), $(local_fields...)) where {$(wheres...)}
                 new{$(params...)}($(all_args...))
             end) : :(
-            function $class(s::$(info.super), $(local_fields...))
+            function $clsname(s::$(info.super), $(local_fields...))
                 new($(all_args...))
             end)
         push!(methods, immut_init)
@@ -293,7 +324,7 @@ function _parse_meta_args(cls, exprs, mutable)
     return meta_args
 end
 
-macro class(elements...)
+function _defclass(clsmodule, elements)
     # allow `@class mutable Foo` syntax
     if (mutable = (elements[1] == :mutable))
         elements = elements[2:end]
@@ -335,6 +366,7 @@ macro class(elements...)
         end
     end
 
+<<<<<<< Updated upstream
     abs_class = _absclass(clsname)
     abs_super = _absclass(supercls)
 
@@ -367,9 +399,46 @@ macro class(elements...)
             Classes.superclass(::Type{clsname}) = supercls
             clsname    # return the struct type
         end
+=======
+    info = _register_class(clsmodule, clsname, supercls, fields, meta_args)
+
+    all_fields = _all_ivars(clsmodule, clsname) # including parents' fields, recursively
+
+    abs_class = _absclass(clsname)
+    abs_super = _absclass(supercls)
+
+    # add default constructors
+    append!(ctors, _constructors(clsname, wheres))
+
+    struct_def = :(
+        struct $clsname{$(wheres...)} <: $abs_class
+            $(all_fields...)
+            $(ctors...)
+        end
+    )
+
+    # toggles definition between mutable and immutable struct
+    struct_def.args[1] = mutable
+
+    accessors = _accessors(clsname)
+
+    result = quote
+        abstract type $abs_class <: $abs_super end
+        $struct_def
+        $(accessors...)
+        let info = class_info($clsname)
+            Classes._set_module!(info, @__MODULE__)
+        end
+        Classes.superclass(::Type{$clsname}) = $supercls
+        $clsname    # return the struct type
+>>>>>>> Stashed changes
     end
 
     return esc(result)
+end
+
+macro class(elements...)
+    :(Classes._defclass(@__MODULE__, $elements))
 end
 
 """
