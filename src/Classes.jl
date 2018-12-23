@@ -27,31 +27,6 @@ struct ClassKey
 end
 
 mutable struct ClassInfo
-<<<<<<< Updated upstream
-    clsmodule::Union{Nothing, Module}
-    clsname::Symbol
-    super::Union{Nothing, Symbol}
-    ivars::Vector{Expr}
-    meta_args::Dict{Symbol, Any}
-
-    function ClassInfo(clsmodule::Module, clsname::Symbol, super::Union{Nothing, Symbol}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
-        new(clsmodule, clsname, super, ivars, meta_args)
-    end
-
-    # allows creation of class info before class is registered in it's defining module
-    function ClassInfo(clsname::Symbol, super::Union{Nothing, Symbol}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
-        ClassInfo(nothing, clsname, super, ivars, meta_args)
-    end
-end
-
-#_classes = OrderedDict{Symbol, ClassInfo}(:Class => ClassInfo(:Class, nothing, Expr[], _default_meta_args))
-
-_classes = OrderedDict{Tuple{Module, Symbol}, ClassInfo}()
-
-function _register_class(info::ClassInfo)
-    key = (info.clsmodule, info.clsname)
-    _classes[key] = info
-=======
     key::ClassKey
     super::Union{Nothing, ClassKey}
     ivars::Vector{Expr}
@@ -71,7 +46,6 @@ _classes = OrderedDict{ClassKey, ClassInfo}(_class_key => ClassInfo(_class_key, 
 
 function __init__()
     _register_class()
->>>>>>> Stashed changes
 end
 
 function _register_class(clsmodule::Module, clsname::Symbol, super::Symbol, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
@@ -88,11 +62,7 @@ class_info(clsmodule::Module, ::Type{T}) where {T <: AbstractClass} = class_info
 
 # Gets cumulative set of instance vars including those in all superclasses
 function _all_ivars(clsmodule::Module, clsname::Symbol)
-<<<<<<< Updated upstream
-    info = class_info(clsmodule::Module, clsname)
-=======
     info = class_info(clsmodule, clsname)
->>>>>>> Stashed changes
     supercls = info.super
     parent_fields = (supercls === nothing ? [] : _all_ivars(clsmodule, supercls))
     return [parent_fields; info.ivars]
@@ -366,40 +336,6 @@ function _defclass(clsmodule, elements)
         end
     end
 
-<<<<<<< Updated upstream
-    abs_class = _absclass(clsname)
-    abs_super = _absclass(supercls)
-
-    result = quote
-        let clsmodule = @__MODULE__
-            clsname = $clsname
-            supercls = $supercls
-            info = Classes.ClassInfo(clsmodule, clsname, supercls, fields, meta_args)
-            all_fields = Classes._all_ivars(clsmodule, clsname) # including parents' fields, recursively
-            ctors = $ctors
-
-            # add default constructors
-            append!(ctors, Classes._constructors(clsname, wheres))
-
-            struct_def = :(
-                struct $clsname{$(wheres...)} <: $abs_class
-                    $(all_fields...)
-                    $(ctors...)
-                end
-            )
-
-            # toggles definition between mutable and immutable struct
-            struct_def.args[1] = $mutable
-
-            accessors = Classes._accessors(clsmodule, clsname)
-
-            abstract type $abs_class <: $abs_super end
-            $struct_def
-            $(accessors...)
-            Classes.superclass(::Type{clsname}) = supercls
-            clsname    # return the struct type
-        end
-=======
     info = _register_class(clsmodule, clsname, supercls, fields, meta_args)
 
     all_fields = _all_ivars(clsmodule, clsname) # including parents' fields, recursively
@@ -431,7 +367,6 @@ function _defclass(clsmodule, elements)
         end
         Classes.superclass(::Type{$clsname}) = $supercls
         $clsname    # return the struct type
->>>>>>> Stashed changes
     end
 
     return esc(result)
