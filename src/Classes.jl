@@ -10,8 +10,8 @@ export @class, @method, Class, AbstractClass, classof, superclass, superclasses,
 # Default values for meta-args to @class to control what the macro emits
 _default_meta_args = Dict(
     :mutable => false,
-    :getters => true,
-    :setters => true,
+    :getters => false,
+    :setters => false,
     :getter_prefix => "get_",
     :getter_suffix => "",
     :setter_prefix => "set_",
@@ -22,31 +22,46 @@ abstract type AbstractClass end            # supertype of all shadow class types
 abstract type Class <: AbstractClass end   # superclass of all concrete classes
 
 mutable struct ClassInfo
-    name::Symbol
-    class_module::Union{Nothing, Module}
+    clsmodule::Union{Nothing, Module}
+    clsname::Symbol
     super::Union{Nothing, Symbol}
     ivars::Vector{Expr}
     meta_args::Dict{Symbol, Any}
 
-    function ClassInfo(name::Symbol, super::Union{Nothing, Symbol}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
-        new(name, nothing, super, ivars, meta_args)
+    function ClassInfo(clsmodule::Module, clsname::Symbol, super::Union{Nothing, Symbol}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
+        new(clsmodule, clsname, super, ivars, meta_args)
+    end
+
+    # allows creation of class info before class is registered in it's defining module
+    function ClassInfo(clsname::Symbol, super::Union{Nothing, Symbol}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
+        ClassInfo(nothing, clsname, super, ivars, meta_args)
     end
 end
 
-_classes = OrderedDict{Symbol, ClassInfo}(:Class => ClassInfo(:Class, nothing, Expr[], _default_meta_args))
+#_classes = OrderedDict{Symbol, ClassInfo}(:Class => ClassInfo(:Class, nothing, Expr[], _default_meta_args))
 
-function _register_class(name::Symbol, super::Symbol, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
-    _classes[name] = ClassInfo(name, super, ivars, meta_args)
+_classes = OrderedDict{Tuple{Module, Symbol}, ClassInfo}()
+
+function _register_class(info::ClassInfo)
+    key = (info.clsmodule, info.clsname)
+    _classes[key] = info
 end
 
-_set_module!(info::ClassInfo, m::Module) = (info.class_module = m)
+function _register_class(clsmodule::Module, clsname::Symbol, super::Symbol, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
+    info = ClassInfo(clsmodule, clsname, super, ivars, meta_args)
+    _register_class(info)
+end
 
-class_info(name::Symbol) = _classes[name]
-class_info(::Type{T}) where {T <: AbstractClass} = class_info(nameof(T))
+# _set_module!(info::ClassInfo, m::Module) = (info.module_ = m)
+
+#class_info(name::Symbol) = _classes[name]
+class_info(clsmodule::Module, clsname::Symbol) = _classes[(clsmodule, clsname)]
+
+class_info(clsmodule::Module, ::Type{T}) where {T <: AbstractClass} = class_info(clsmodule, nameof(T))
 
 # Gets cumulative set of instance vars including those in all superclasses
-function _all_ivars(cls::Symbol)
-    info = class_info(cls)
+function _all_ivars(clsmodule::Module, clsname::Symbol)
+    info = class_info(clsmodule::Module, clsname)
     supercls = info.super
     parent_fields = (supercls === nothing ? [] : _all_ivars(supercls))
     return [parent_fields; info.ivars]
@@ -298,11 +313,11 @@ macro class(elements...)
     
     # allow for optional type params and supertype
     if ! (@capture(name_expr, ((clsexpr_{wheres__}  | clsexpr_) <: supercls_) | (clsexpr_{wheres__} | clsexpr_)) &&
-          (@capture(clsexpr, cls_(arglist__)) || @capture(clsexpr, cls_Symbol)))
+          (@capture(clsexpr, clsname_(arglist__)) || @capture(clsexpr, cls_Symbol)))
         error("Unrecognized class name expression: `$name_expr`")
     end
 
-    meta_args = _parse_meta_args(cls, arglist, mutable)
+    meta_args = _parse_meta_args(clsname, arglist, mutable)
     mutable = meta_args[:mutable]   # in case it was specified in meta-args
     
     supercls = (supercls === nothing ? :Class : supercls)
@@ -313,44 +328,45 @@ macro class(elements...)
     fields = Vector{Expr}()
     for ex in exprs
         try 
-            splitdef(ex)        # raises AssertionError if not a func def
+            splitdef(ex)        # throws AssertionError if not a func def
             push!(ctors, ex)
         catch
             push!(fields, ex)
         end
     end
 
-    info = _register_class(cls, supercls, fields, meta_args)
-
-    all_fields = _all_ivars(cls) # including parents' fields, recursively
-
-    abs_class = _absclass(cls)
+    abs_class = _absclass(clsname)
     abs_super = _absclass(supercls)
 
-    # add default constructors
-    append!(ctors, _constructors(cls, wheres))
-
-    struct_def = :(
-        struct $cls{$(wheres...)} <: $abs_class
-            $(all_fields...)
-            $(ctors...)
-        end
-    )
-
-    # toggles definition between mutable and immutable struct
-    struct_def.args[1] = mutable
-
-    accessors = _accessors(cls)
-
     result = quote
-        abstract type $abs_class <: $abs_super end
-        $struct_def
-        $(accessors...)
-        let info = class_info($cls)
-            Classes._set_module!(info, @__MODULE__)
+        let clsmodule = @__MODULE__
+            clsname = $clsname
+            supercls = $supercls
+            info = Classes.ClassInfo(clsmodule, clsname, supercls, fields, meta_args)
+            all_fields = Classes._all_ivars(clsmodule, clsname) # including parents' fields, recursively
+            ctors = $ctors
+
+            # add default constructors
+            append!(ctors, Classes._constructors(clsname, wheres))
+
+            struct_def = :(
+                struct $clsname{$(wheres...)} <: $abs_class
+                    $(all_fields...)
+                    $(ctors...)
+                end
+            )
+
+            # toggles definition between mutable and immutable struct
+            struct_def.args[1] = $mutable
+
+            accessors = Classes._accessors(clsmodule, clsname)
+
+            abstract type $abs_class <: $abs_super end
+            $struct_def
+            $(accessors...)
+            Classes.superclass(::Type{clsname}) = supercls
+            clsname    # return the struct type
         end
-        Classes.superclass(::Type{$cls}) = $supercls
-        $cls    # return the struct type
     end
 
     return esc(result)
@@ -381,6 +397,13 @@ macro method(funcdef)
     args[1] = :($arg1::$type_symbol)
     expr = MacroTools.combinedef(parts)
     return esc(expr)
+end
+
+# store top-level Class info on load
+function __init__()
+    super = nothing
+    ivars = Expr[]
+    _register_class( ClassInfo(Classes, :Class, super, ivars, _default_meta_args) )
 end
 
 end # module
