@@ -3,6 +3,7 @@ using Classes
 using Suppressor
 
 @test superclass(Class) === nothing
+@test isclass(AbstractClass) == false
 
 @class Foo <: Class begin
    foo::Int
@@ -126,13 +127,16 @@ upd = Baz(bar, 555)
 @test upd.foo == 1 && upd.bar == 2 && upd.baz == 555
 
 # ...and with parameterized types
-@class SubTupleHolder{NT <: NamedTuple} <: Baz begin
+@class mutable SubTupleHolder{NT <: NamedTuple} <: Baz begin
     nt::NT
 end
 
 sub = SubTupleHolder{NT}(z, nt)
 @test sub.nt.foo == 1 && sub.nt.bar == 2 && sub.foo == 1000 && sub.bar == 101 && sub.baz == 102
 
-# Test method structure
+xyz = SubTupleHolder(sub, 10, 20, 30, (foo=111, bar=222))
+@test xyz.nt.foo == 111 && xyz.nt.bar == 222 && xyz.foo == 10
+
+# Test method structure)
 # "First argument of method whatever must be explicitly typed"
 @test_throws(LoadError, eval(Meta.parse("@method whatever(i) = i")))
