@@ -1,9 +1,12 @@
 using Test
 using Classes
 using Suppressor
+using MacroTools: striplines
 
 @test superclass(Class) === nothing
-@test isclass(AbstractClass) == false
+
+@test isclass(AbstractClass) == false       # not concrete
+@test isclass(Int) == false                 # not <: AbstractClass
 
 @class Foo <: Class begin
    foo::Int
@@ -140,3 +143,50 @@ xyz = SubTupleHolder(sub, 10, 20, 30, (foo=111, bar=222))
 # Test method structure)
 # "First argument of method whatever must be explicitly typed"
 @test_throws(LoadError, eval(Meta.parse("@method whatever(i) = i")))
+
+expr = quote
+    abstract type AbstractX <: AbstractClass end
+    struct X{} <: AbstractX
+        function X()
+            #= /Users/rjp/.julia/dev/Classes/src/Classes.jl:136 =#
+            new()
+        end
+        function X(_self::T) where T <: AbstractX
+            _self
+        end
+    end
+    Classes.superclass(::Type{X}) = begin
+            Class
+        end
+    X
+end
+
+expected1 = striplines(expr)
+emitted1  = striplines(Classes._defclass(:X, Class, false, nothing, []))
+
+@test string(expected1) == string(emitted1)
+
+expr = quote
+    abstract type AbstractX <: AbstractClass end
+    mutable struct X{NT <: NamedTuple} <: AbstractX
+        i::Int
+        j::Int
+        function X{NT}(i::Int, j::Int) where NT <: NamedTuple
+            new{NT}(i, j)
+        end
+        function X(_self::T, i::Int, j::Int) where {T <: AbstractX, NT <: NamedTuple}
+            _self.i = i
+            _self.j = j
+            _self
+        end
+    end
+    Classes.superclass(::Type{X}) = begin
+            Class
+        end
+    X
+end
+
+expected2 = striplines(expr)
+emitted2  = striplines(Classes._defclass(:X, Class, true, [:(NT <: NamedTuple)], [:(i::Int), :(j::Int)]))
+
+@test string(expected2) == string(emitted2)
