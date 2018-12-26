@@ -9,7 +9,7 @@ export @class, @method, Class, AbstractClass, isclass, classof, superclass, supe
 abstract type AbstractClass end            # supertype of all shadow class types
 abstract type Class <: AbstractClass end   # superclass of all concrete classes
 
- (cls::Symbol) = Symbol("Abstract", cls)
+abs_symbol(cls::Symbol) = Symbol("Abstract", cls)
 
 # Return info about a class in a named tuple
 function _class_info(::Type{T}) where {T <: AbstractClass}
