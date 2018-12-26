@@ -4,87 +4,17 @@ using DataStructures
 using MacroTools
 using InteractiveUtils: subtypes
 
-export @class, @method, Class, AbstractClass, classof, superclass, superclasses, issubclass, subclasses, 
-    absclass, class_info, show_accessors, show_all_accessors
-
-# Default values for meta-args to @class to control what the macro emits
-_default_meta_args = Dict(
-    :mutable => false,
-    :getters => false,
-    :setters => false,
-    :getter_prefix => "get_",
-    :getter_suffix => "",
-    :setter_prefix => "set_",
-    :setter_suffix => "!"
-)
+export @class, @method, Class, AbstractClass, isclass, classof, superclass, superclasses, issubclass, subclasses, absclass
 
 abstract type AbstractClass end            # supertype of all shadow class types
 abstract type Class <: AbstractClass end   # superclass of all concrete classes
 
-struct ClassKey
-    clsmodule::Module
-    clsname::Symbol
-end
+ (cls::Symbol) = Symbol("Abstract", cls)
 
-mutable struct ClassInfo
-    key::ClassKey
-    super::Union{Nothing, ClassKey}
-    ivars::Vector{Expr}
-    meta_args::Dict{Symbol, Any}
-
-    function ClassInfo(key::ClassKey, super::Union{Nothing, ClassKey}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
-        new(key, name, super, ivars, meta_args)
-    end
-
-    function ClassInfo(m::Module, name::Symbol, super::Union{Nothing, ClassKey}, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
-        ClassInfo(ClassKey(m, name), super, ivars, meta_args)
-    end
-end
-
-_class_key = ClassKey(Classes, :Class)
-_classes = OrderedDict{ClassKey, ClassInfo}(_class_key => ClassInfo(_class_key, nothing, Expr[], _default_meta_args))
-
-function __init__()
-    _register_class()
-end
-
-function _register_class(clsmodule::Module, clsname::Symbol, super::Symbol, ivars::Vector{Expr}, meta_args::Dict{Symbol, Any})
-    info = ClassInfo(clsmodule, clsname, super, ivars, meta_args)
-    _register_class(info)
-end
-
-# _set_module!(info::ClassInfo, m::Module) = (info.module_ = m)
-
-#class_info(name::Symbol) = _classes[name]
-class_info(clsmodule::Module, clsname::Symbol) = _classes[(clsmodule, clsname)]
-
-class_info(clsmodule::Module, ::Type{T}) where {T <: AbstractClass} = class_info(clsmodule, nameof(T))
-
-# Gets cumulative set of instance vars including those in all superclasses
-function _all_ivars(clsmodule::Module, clsname::Symbol)
-    info = class_info(clsmodule, clsname)
-    supercls = info.super
-    parent_fields = (supercls === nothing ? [] : _all_ivars(clsmodule, supercls))
-    return [parent_fields; info.ivars]
-end
-
-"""
-    show_accessors(cls::Union{Symbol, AbstractClass})
-
-Print the accessor functions emitted for the given class `cls`.
-"""
-function show_accessors(cls::Symbol)
-    for def in _accessors(cls)
-        println(MacroTools.striplines(def))
-    end
-end
-
-show_accessors(::Type{T}) where {T <: AbstractClass} = show_accessors(nameof(T))
-
-function show_all_accessors()
-    for cls in keys(_classes)
-        show_accessors(cls)
-    end
+# Return info about a class in a named tuple
+function _class_info(::Type{T}) where {T <: AbstractClass}
+    ivars = (isabstracttype(T) ? Expr[] : [:($vname::$vtype) for (vname, vtype) in zip(fieldnames(T), T.types)])
+    return (modname=T.name.module, mutable=T.mutable, parameters=T.parameters, ivars=ivars, super=superclass(T))
 end
 
 """
@@ -108,7 +38,14 @@ function superclasses(::Type{T}) where {T <: AbstractClass}
     [super, superclasses(super)...]
 end
 
-# catch-all
+"""
+    isclass(X)
+
+Return `true` if `X` is a concrete subclass of `AbstractClass`, or is `Class`, which is abstract.
+"""
+isclass(any) = false
+isclass(::Type{T}) where {T <: AbstractClass} = (T === Class || isconcretetype(T))
+
 """
     issubclass(t1::DataType, t2::DataType)
 
@@ -122,11 +59,11 @@ issubclass(::Type{T1}, ::Type{T2}) where {T1 <: AbstractClass, T2 <: AbstractCla
 """
     classof(::Type{T}) where {T <: AbstractClass}
 
-Compute the concrete class associated with a shadow abstract class, which must
-be a subclass of AbstractClass.
+Compute the concrete class associated with abstract class `T`, which must
+be a subclass of `AbstractClass`.
 """
 function classof(::Type{T}) where {T <: AbstractClass}
-    if isconcretetype(T)
+    if isclass(T)
         return T
     end
 
@@ -157,41 +94,37 @@ function subclasses(::Type{T}) where {T <: AbstractClass}
     return [subs; [subclasses(t) for t in subs]...]
 end
 
-_absclass(cls::Symbol) = Symbol("Abstract$(cls)")
-
 """
     absclass(::Type{T}) where {T <: AbstractClass}
 
-Returns the abstract type for the concrete class for `T`
+Returns the abstract type associated with the concrete class `T`.
 """
 function absclass(::Type{T}) where {T <: AbstractClass}
-    return isabstracttype(T) ? error("absclass(T) must be called on concrete classes. $T is abstract class type") : supertype(T)
+    isclass(T) ? supertype(T) : error("absclass(T) must be called on concrete classes; $T is abstract.")
 end
 
-_argnames(fields) = [sym for (sym, arg_type, slurp, default) in map(splitarg, fields)]
+function _argnames(fields)
+    return [sym for (sym, arg_type, slurp, default) in map(splitarg, fields)]
+end
 
 # We generate two initializer functions: one takes all fields, cumulative through superclasses,
 # and another initializes only locally-defined fields. This function produces either, depending
 # on the fields passed by _constructors().
 function _initializer(class, fields, wheres)
     args = _argnames(fields)
-    assigns = [:(self.$arg = $arg) for arg in args]
+    assigns = [:(_self.$arg = $arg) for arg in args]
 
     funcdef = :(
-        function $class(self::T, $(fields...)) where {T <: $(_absclass(class)), $(wheres...)}
+        function $class(_self::T, $(fields...)) where {T <: $(abs_symbol(class)), $(wheres...)}
             $(assigns...)
-            self
+            _self
         end
     )
 
     return funcdef
 end
 
-function _constructors(clsmodule, clsname, wheres)
-    info = class_info(clsmodule, clsname)
-    local_fields = info.ivars
-    all_fields = _all_ivars(clsname)
-
+function _constructors(clsname, super, local_fields, all_fields, wheres)
     args = _argnames(all_fields)
     params = [clause.args[1] for clause in wheres]  # extract parameter names from where clauses
 
@@ -216,17 +149,18 @@ function _constructors(clsmodule, clsname, wheres)
 
     # Primarily for immutable classes, we emit a constructor that takes an instance
     # of the direct superclass and copies values when creating a new object.
-    super_fields = _all_ivars(info.super)
+    super_info = _class_info(super)
+    super_fields = super_info.ivars
     if length(super_fields) != 0
-        super_args = [:(s.$arg) for arg in _argnames(super_fields)]
+        super_args = [:(_super.$arg) for arg in _argnames(super_fields)]
         local_args = _argnames(local_fields)
         all_args = [super_args; local_args]
 
         immut_init = length(params) > 0 ? :(
-            function $clsname{$(params...)}(s::$(info.super), $(local_fields...)) where {$(wheres...)}
+            function $clsname{$(params...)}(_super::$super, $(local_fields...)) where {$(wheres...)}
                 new{$(params...)}($(all_args...))
             end) : :(
-            function $clsname(s::$(info.super), $(local_fields...))
+            function $clsname(_super::$super, $(local_fields...))
                 new($(all_args...))
             end)
         push!(methods, immut_init)
@@ -235,96 +169,10 @@ function _constructors(clsmodule, clsname, wheres)
     return methods
 end
 
-# Generate "getter" and "setter" functions for all instance variables.
-# For ivar `foo::T`, in class `ClassName`, generate:
-#   get_foo(obj::absclass(ClassName)) = obj.foo
-#   set_foo!(obj::absclass(ClassName), value::T) = (obj.foo = foo)
-function _accessors(cls)
-    exprs = Vector{Expr}()
-    info = class_info(cls)
-
-    meta_args = info.meta_args
-
-    emit_getters = meta_args[:getters]
-    emit_setters = meta_args[:setters]
-
-    if ! (emit_getters || emit_setters)
-        return exprs    # nothing to do
-    end
-
-    super = _absclass(cls)
-
-    get_pre = meta_args[:getter_prefix]
-    get_suf = meta_args[:getter_suffix]
-    set_pre = meta_args[:setter_prefix]
-    set_suf = meta_args[:setter_suffix]
-
-    for (name, argtype, slurp, default) in map(splitarg, info.ivars)
-        if emit_getters
-            getter = Symbol("$(get_pre)$(name)$(get_suf)")
-            push!(exprs, :($getter(obj::$super) = obj.$name))
-        end
-
-        if emit_setters
-            setter = Symbol("$(set_pre)$(name)$(set_suf)")
-            push!(exprs, :($setter(obj::$super, value::$argtype) = (obj.$name = value)))
-        end
-    end
-    return exprs
-end
-
-function _parse_meta_args(cls, exprs, mutable)
-    meta_args = copy(_default_meta_args)
-    meta_args[:mutable] = mutable
-
-    exprs === nothing && return meta_args
-    
-    for elt in exprs
-        @capture(elt, name_ = value_) || error("@class $cls: Meta args must be a tuple of keyword assignments: got $exprs")
-        haskey(meta_args, name)       || error("@class $cls: Unknown meta args name '$name'. Possible values are: $(Tuple(keys(_default_meta_args)))")
-        
-        # handle corner case of `@class mutable Foo(mutable=false)`
-        if (mutable && name === :mutable && value == :false)
-            error("Conflicting settings for 'mutable' in class $cls")
-        end
-
-        meta_args[name] = (value in (:true, :false) ? value == :true : value)   # avoid eval() to allow pre-compilation
-    end
-
-    return meta_args
-end
-
-function _defclass(clsmodule, elements)
-    # allow `@class mutable Foo` syntax
-    if (mutable = (elements[1] == :mutable))
-        elements = elements[2:end]
-    end
-
-    len = length(elements)
-    if len == 1                       # no fields defined
-        name_expr = elements[1]
-        definition = quote end
-    elseif len == 2
-        (name_expr, definition) = elements
-    else
-        error("Unrecognized form for @class definition: $elements")
-    end
-
-    @capture(definition, begin exprs__ end)
-    
-    # allow for optional type params and supertype
-    if ! (@capture(name_expr, ((clsexpr_{wheres__}  | clsexpr_) <: supercls_) | (clsexpr_{wheres__} | clsexpr_)) &&
-          (@capture(clsexpr, clsname_(arglist__)) || @capture(clsexpr, cls_Symbol)))
-        error("Unrecognized class name expression: `$name_expr`")
-    end
-
-    meta_args = _parse_meta_args(clsname, arglist, mutable)
-    mutable = meta_args[:mutable]   # in case it was specified in meta-args
-    
-    supercls = (supercls === nothing ? :Class : supercls)
+function _defclass(clsname, supercls, mutable, wheres, exprs)   
     wheres   = (wheres === nothing ? [] : wheres)
 
-    # split the expressions into constructors and field definitions
+    # partition expressions into constructors and field defs
     ctors  = Vector{Expr}()
     fields = Vector{Expr}()
     for ex in exprs
@@ -336,15 +184,15 @@ function _defclass(clsmodule, elements)
         end
     end
 
-    info = _register_class(clsmodule, clsname, supercls, fields, meta_args)
-
-    all_fields = _all_ivars(clsmodule, clsname) # including parents' fields, recursively
-
-    abs_class = _absclass(clsname)
-    abs_super = _absclass(supercls)
+    superinfo = _class_info(supercls)
+    all_fields = copy(superinfo.ivars)
+    append!(all_fields, fields)
 
     # add default constructors
-    append!(ctors, _constructors(clsname, wheres))
+    append!(ctors, _constructors(clsname, supercls, fields, all_fields, wheres))
+
+    abs_class = abs_symbol(clsname)
+    abs_super = absclass(supercls)
 
     struct_def = :(
         struct $clsname{$(wheres...)} <: $abs_class
@@ -353,27 +201,48 @@ function _defclass(clsmodule, elements)
         end
     )
 
-    # toggles definition between mutable and immutable struct
+    # set mutability flag
     struct_def.args[1] = mutable
-
-    accessors = _accessors(clsname)
 
     result = quote
         abstract type $abs_class <: $abs_super end
         $struct_def
-        $(accessors...)
-        let info = class_info($clsname)
-            Classes._set_module!(info, @__MODULE__)
-        end
+
         Classes.superclass(::Type{$clsname}) = $supercls
         $clsname    # return the struct type
     end
 
-    return esc(result)
+    return result
 end
 
 macro class(elements...)
-    :(Classes._defclass(@__MODULE__, $elements))
+    if (mutable = (elements[1] == :mutable))
+        elements = elements[2:end]
+    end
+
+    if (len = length(elements)) == 1                       # no fields defined
+        name_expr = elements[1]
+        definition = quote end
+    elseif len == 2
+        (name_expr, definition) = elements
+    else
+        error("Unrecognized form for @class definition: $elements")
+    end
+
+    # initialize the "captured" vars to avoid "unknown var" warnings
+    cls = clsname = exprs = wheres = nothing
+
+    @capture(definition, begin exprs__ end)
+    
+    # allow for optional type params and supertype
+    if ! (@capture(name_expr, ((cls_{wheres__} | cls_) <: supername_) | (cls_{wheres__} | cls_)) && cls isa Symbol)
+        error("Unrecognized class name expression: `$name_expr`")
+    end
+
+    # The explicit eval forces supername to be eval'd in calling environment
+    supername = (supername === nothing ? :Class : supername)
+    expr = :(eval(Classes._defclass($(QuoteNode(cls)), $supername, $mutable, $wheres, $exprs)))
+    return esc(expr)
 end
 
 """
@@ -394,20 +263,13 @@ macro method(funcdef)
     end
 
     type_symbol = gensym("T")  # gensym avoids conflict with user's type params
-    abs_super = _absclass(T)
+    abs_super = abs_symbol(T)
 
     # Redefine the function to accept any first arg that's a subclass of abstype
     parts[:whereparams] = (:($type_symbol <: $abs_super), whereparams...)
     args[1] = :($arg1::$type_symbol)
     expr = MacroTools.combinedef(parts)
     return esc(expr)
-end
-
-# store top-level Class info on load
-function __init__()
-    super = nothing
-    ivars = Expr[]
-    _register_class( ClassInfo(Classes, :Class, super, ivars, _default_meta_args) )
 end
 
 end # module

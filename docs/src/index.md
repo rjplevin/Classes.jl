@@ -1,10 +1,40 @@
 # Classes.jl
 
-## Functions emitted by the @class macro
+The key feature of the package is the management of an abstract type hierarchy that
+defines the subclass and superclass relationships desired of the the concrete types
+representing the classes. The concrete types defined for each class include all the
+fields defined in any declared superclass, plus the fields defined within the class
+declaration. The abstract type hierarchy allows methods defined for a class to be
+called on its subclasses, whose fields are a superset of those of its superclass.
 
-The `@class` macro emits several functions, including constructors, initializers, and support methods.
+The `Classes.jl` package comprises two macros (`@class` and `@method`) and several 
+exported functions, described below.
 
-### Constructors
+## The @class macro
+
+The `@class` macro does all the real work for this package. For each class (say, `MyClass`) created 
+via `@class`, the following code is emitted:
+
+* An abstract type created by prepending `Abstract` on the given class name (e.g., `AbstractMyClass`), 
+  which is a subtype of the abstract type associated
+  with a named superclass, if given, or `Classes.AbstractClass` if not specified.
+
+* A concrete type `MyClass <: AbstractMyClass` with the fields of its superclass plus any
+  locally defined fields.
+
+* Several methods, including constructors, initializers, and introspection methods.
+
+### The 'mutable' keyword
+
+Class mutability is specified  by including `mutable` before the class name, e.g.,
+`@class mutable MyClass ...` Note that mutability is not inherited; it must be stated in
+each subclass if mutability is required.
+
+### Functions emitted by the @class macro
+
+The `@class` macro emits 
+
+#### Constructors
 
 * "All fields" constructor
 
@@ -12,7 +42,7 @@ The `@class` macro emits several functions, including constructors, initializers
   the order defined, and calls `new()` on the args. This simply duplicates the default
   constructor, which is necessary since we define other "inner" constructors and initializers.
 
-### Initializers
+#### Initializers
 
 Initializers are functions that set values on an existing class instance. These come
 in several forms:
@@ -35,72 +65,12 @@ in several forms:
   immediate superclass of the present class, from which values are copied into a call to
   `new` on the present class.
 
-### Support methods
-
-#### Structure field accessor function
-
-* By default, the `@class` macro generates "getter" and "setter" functions
-  for all locally defined fields in each class. For example, For a class `Foo` with local field 
-  `foo::T`, two functions are generated:
-
-  ```
-    # "getter" function
-    get_foo(obj::AbstractFoo) = obj.foo
-
-    # "setter" function
-    set_foo!(obj::AbstractFoo, value::T) = (obj.foo = foo)
-  ```
-  Note that these are defined on objects of type `AbstractFoo`, so they can be used on `Foo`
-  and any of its subclasses.
-
-Whether to emit these functions, and, if so, how to name them can be controlled by
-passing a tuple of "meta-parameters" after the class name in the call to `@class`,
-as in this example:
-
-```
-@class ClassName(setters=false, getter_prefix="") <: SuperClass ... 
-```
-
-Use this to set the following options (the default values are shown):
-```
-    mutable = false          # Whether to generate a mutable struct
-    setters = true           # Whether to generate setter functions
-    getters = true           # Whether to generate getter functions
-    getter_prefix = "get_"   # Prefix to use for getter functions
-    getter_suffix = ""       # Suffix to use for getter functions
-    setter_prefix = "set_"   # Prefix to use for setter functions
-    setter_suffix = "!"      # Suffix to use for setter functions
-```
-
-Names of getter and setter methods for a field `foo` are composed as follows:
-
-```
-    $(getter_prefix)foo$(getter_suffix) # getter name for `foo`
-    $(setter_prefix)foo$(setter_suffix) # setter name for `foo`
-```
-
-If both meta-args and type parameters are used in the class definition, the meta-args
-must come between the class name and the type parameters, e.g.,
-
-```
-@class Foo(mutable=true, setters=false){T <: SomeClass} begin
-    i::Int
-    f::Float64
-end
-```
-
-#### The 'mutable' keyword
-
-Class mutability can be specified two ways:
-1. As a keyword before the class name, as in `@class mutable MyClass ...`
-2. In the meta-args, as in `@class MyClass(mutable=true)`
-
-Note that disagreement between the explicit keyword and the meta-args is not allowed:
-`@class mutable Foo(mutable=false)` will raise an error, whereas `@class mutable Foo(mutable=True)`
-and `@class Foo(mutable=false)` are valid (and redundant.)
-
-
 #### Reflection methods
+
+* `isclass(T)`
+   
+   Return `true` if `T` is a concrete subclass of `AbstractClass`, or is `Class`, which is abstract.
+   Returns `false` otherwise.
 
 * `issubclass(class, superclass)`
 
@@ -111,16 +81,115 @@ and `@class Foo(mutable=false)` are valid (and redundant.)
 
    Returns the superclass of the newly defined class.
 
-* `show_all_accessors()`
+* `superclasses(::Type{T}) where {T <: AbstractClass}`
 
-  Prints a list of all accessor functions generated for all classes.
+  Returns a Vector of superclasses from the superclass of class `T`
+  to `Class`, in order.
 
-* `show_accessors(class)`
+* `subclasses(::Type{T}) where {T <: AbstractClass}`
 
-  * Prints a list of the accesor functions generated for `class`, which
-    can be a symbol or the type of a concrete class.
+  Returns a Vector of the subclasses for a given class `T`.
 
-### Example
+* `classof(::Type{T}) where {T <: AbstractClass}`
+
+   Computes the concrete class associated with abstract type `T`, which must
+   be a subclass of `AbstractClass`.
+
+* `absclass(::Type{T}) where {T <: AbstractClass}`
+
+  Returns the abstract type associated with the concrete class `T`.
+
+## The @method macro
+
+As defined in this package, a "class method" is simply a function whose first argument is
+a type defined by `@class`. The `@method` macro uses the shadow abstract type hierarchy to 
+redefine the given function so that it applies to the given class as well as its subclasses.
+
+Thus the following `@method` invocation:
+
+```
+@method my_method(obj::Bar, other, stuff) = do_something(obj, other, stuff)
+```
+
+emits the following code:
+
+```
+my_method(obj::AbstractBar, other, stuff) = do_something(obj, other, args)
+```
+
+The only change is that the type of first argument is changed to the abstract supertype
+associated with the concrete type `Bar`, allowing subclasses of `Bar` -- whose
+abstract supertype would by a subtype of `AbstractBar` -- to use the method as well. Since 
+the subclass contains a superset of the fields in the superclass, this works out fine.
+
+Subclasses can override a superclass method by redefining the method on the
+more specific class.
+
+Say we define the following method on class `Foo`:
+
+```
+@method get_foo(obj::Foo) = obj.foo
+```
+
+This is equivalent to writing:
+
+```
+get_foo(obj::AbstractFoo) = obj.foo
+```
+
+Since `Bar <: AbstractBar <: AbstractFoo`,  the method also applies to instances of `Bar`.
+
+```
+julia> f = Foo(1)
+Foo(1)
+
+julia> b = Bar(10, 11)
+Bar(10, 11)
+
+julia> get_foo(f)
+1
+
+julia> get_foo(b)
+10
+```
+
+We can redefine `get_foo` for class `Bar` to override its inherited superclass definition:
+
+```
+julia> @method get_foo(obj::Bar) = obj.foo * 2
+get_foo (generic function with 2 methods)
+
+julia> get_foo(b)
+20
+```
+
+Subclasses of `Bar` now inherit this new definition, rather than the one inherited from `Foo`,
+since the prior class is more specialized (further down in the shadow abstract type hierarchy).
+
+```
+julia> @class Baz <: Bar begin
+          baz::Int
+       end
+
+julia> z = Baz(100, 101, 102)
+Baz(100, 101, 102)
+
+julia> dump(z)
+Baz
+  foo: Int64 100
+  bar: Int64 101
+  baz: Int64 102
+  
+julia> get_foo(z)
+200
+```
+
+The user deals primarily with the concrete types; the abstract types are created and used mainly by 
+the `@class` and `@method` macros. However, methods can be defined directly using classes' abstract 
+types, allowing the use of classes and inheritance in arguments besides the first one, which is the 
+only one handled by this macro.
+
+## Example
 
 ```
 using Classes
@@ -165,10 +234,6 @@ Foo(foo::Int64)
 # local-field initializer
 Foo(self::T, foo::Int64) where T<:AbstractFoo
 
-# field accessors
-get_foo(obj::AbstractFoo) = obj.foo
-set_foo!(obj::AbstractFoo, value::Int) = (obj.foo = value)
-
 # Custom constructor defined inside the @class above
 Bar()
 
@@ -190,20 +255,19 @@ Bar(self::T, foo::Int64, bar::Int64) where T<:AbstractBar
 
 #  Superclass-copy initializer 
 Bar(bar::Int64, s::Foo)
-
-# field accessors
-get_bar(obj::AbstractBar) = obj.bar
-set_bar!(obj::AbstractBar, value::Int) = (obj.bar = value)
 ```
 
 ## Example from Mimi
 
-The following diagram shows the relationship between the concrete structs and abstract types create by the `@class` macro. Solid lines indicate subtype relationships; dotted lines indicate
-subclass relationships, which exist outside the julia type system.
+The following diagram shows the relationship between the concrete structs and abstract types create by 
+the `@class` macro. Solid lines indicate subtype relationships; dotted lines indicate subclass 
+relationships, which exist outside the julia type system.
 
 ![Mimi component structure](figs/Classes.png)
 
-Each class as a corresponding "shadow" abstract supertype (of the same name surrounded by underscores) which is a parent to all abstract supertypes of its subclasses. The subclasses of, say, `ComponentDef` are all subtypes of `AbstractComponentDef`, thus methods defined as
+Each class as a corresponding "shadow" abstract supertype (of the same name surrounded by underscores) which 
+is a parent to all abstract supertypes of its subclasses. The subclasses of, say, `ComponentDef` are all 
+subtypes of `AbstractComponentDef`, thus methods defined as:
 
 ```
 @method function foo(obj::ComponentDef)
@@ -211,7 +275,7 @@ Each class as a corresponding "shadow" abstract supertype (of the same name surr
 end
 ```
 
-are emitted essentially as the following:
+are emitted as:
 
 ```
 function foo(obj::T) where {T <: AbstractComponentDef}
@@ -219,5 +283,4 @@ function foo(obj::T) where {T <: AbstractComponentDef}
 end
 ```
 
-So the `foo` method can be called on any subclass of `ComponentDef`. The user deals only with the concrete types; the abstract types are created and used only by the `@class` and `@method` macros.
-
+This allows the `foo` method to be called on any subclass of `ComponentDef`.
