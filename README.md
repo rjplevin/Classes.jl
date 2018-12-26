@@ -132,4 +132,4 @@ emits essentially the following code:
 my_method(obj::AbstractBar, other, stuff) = do_something(obj, other, args)
 ```
 
-See the online documentation for further details.
+See the online [documentation](https://github.com/rjplevin/Classes.jl/blob/master/docs/src/index.md) for further details.
