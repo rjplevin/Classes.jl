@@ -241,7 +241,9 @@ macro class(elements...)
 
     # The explicit eval forces supername to be eval'd in calling environment
     supername = (supername === nothing ? :Class : supername)
-    expr = :(eval(Classes._defclass($(QuoteNode(cls)), $supername, $mutable, $wheres, $exprs)))
+
+    # __module__ is a "hidden" arg passed to macros with the caller's Module
+    expr = _defclass(cls, __module__.eval(supername), mutable, wheres, exprs)
     return esc(expr)
 end
 
