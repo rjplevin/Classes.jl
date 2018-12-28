@@ -47,7 +47,7 @@ is a subtype of the abstract type associated with the superclass of `Foo`.
 
 Given these two class definitions (note that `Class` is defined in `Classes.jl`):
 
-```
+```julia
 using Classes
 
 @class Foo <: Class begin       # or, equivalently, @class Foo begin ... end
@@ -61,7 +61,7 @@ end
 
 The following julia code is emitted:
 
-```
+```julia
 abstract type AbstractFoo <: AbstractClass end
 
 struct Foo{} <: AbstractFoo
@@ -101,7 +101,7 @@ callable only on a mutable struct.
 
 In addition, introspection functions are emitted that relate these:
 
-```
+```julia
 Classes.superclass(::Type{Bar}) = Foo
 
 Classes.issubclass(::Type{Bar}, ::Type{Foo}) = true
@@ -122,13 +122,13 @@ function so that it applies to the given class as well as its subclasses.
 
 Thus the following `@method` invocation
 
-```
+```julia
 @method my_method(obj::Bar, other, stuff) = do_something(obj, other, stuff)
 ```
 
 emits essentially the following code:
 
-```
+```julia
 my_method(obj::AbstractBar, other, stuff) = do_something(obj, other, args)
 ```
 
