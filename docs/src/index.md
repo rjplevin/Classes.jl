@@ -127,19 +127,19 @@ more specific class.
 
 Say we define the following method on class `Foo`:
 
-```
+```julia
 @method get_foo(obj::Foo) = obj.foo
 ```
 
 This is equivalent to writing:
 
-```
+```julia
 get_foo(obj::AbstractFoo) = obj.foo
 ```
 
 Since `Bar <: AbstractBar <: AbstractFoo`,  the method also applies to instances of `Bar`.
 
-```
+```julia
 julia> f = Foo(1)
 Foo(1)
 
@@ -155,7 +155,7 @@ julia> get_foo(b)
 
 We can redefine `get_foo` for class `Bar` to override its inherited superclass definition:
 
-```
+```julia
 julia> @method get_foo(obj::Bar) = obj.foo * 2
 get_foo (generic function with 2 methods)
 
@@ -166,7 +166,7 @@ julia> get_foo(b)
 Subclasses of `Bar` now inherit this new definition, rather than the one inherited from `Foo`,
 since the prior class is more specialized (further down in the shadow abstract type hierarchy).
 
-```
+```julia
 julia> @class Baz <: Bar begin
           baz::Int
        end
@@ -191,7 +191,7 @@ only one handled by this macro.
 
 ## Example
 
-```
+```julia
 using Classes
 
 @class Foo <: Class begin
@@ -219,7 +219,8 @@ end
 ```
 
 Produces the following methods:
-```
+
+```julia
 # Custom constructors defined inside the @class above
 Foo()
 Foo(self::AbstractFoo)
@@ -269,7 +270,7 @@ Each class as a corresponding "shadow" abstract supertype (of the same name surr
 is a parent to all abstract supertypes of its subclasses. The subclasses of, say, `ComponentDef` are all 
 subtypes of `AbstractComponentDef`, thus methods defined as:
 
-```
+```julia
 @method function foo(obj::ComponentDef)
     ...
 end
@@ -277,7 +278,7 @@ end
 
 are emitted as:
 
-```
+```julia
 function foo(obj::T) where {T <: AbstractComponentDef}
     ...
 end
