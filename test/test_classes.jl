@@ -1,14 +1,12 @@
 using Test
 using Classes
-using Suppressor
-using MacroTools: striplines
 
 @test superclass(Class) === nothing
 
 @test isclass(AbstractClass) == false       # not concrete
 @test isclass(Int) == false                 # not <: AbstractClass
 
-@class Foo <: Class begin
+@class Foo begin
    foo::Int
 
    Foo() = Foo(0)
@@ -26,11 +24,6 @@ end
 @test superclass(Foo) == Class
 @test_throws Exception superclass(AbstractFoo)
 
-function clean_str(s)
-    s = replace(s, r"\n" => " ")
-    s = replace(s, r"\s\s+" => " ")
-end
-
 @class mutable Bar <: Foo begin
     bar::Int
 
@@ -45,7 +38,7 @@ end
 @class mutable Baz <: Bar begin
    baz::Int
 
-   function Baz(self::Union{Nothing, absclass(Baz)}=nothing)
+   function Baz(self::Union{Nothing, AbstractBaz}=nothing)
         self = (self === nothing ? new() : self)
         superclass(Baz)(self)
         Baz(self, 0)
@@ -144,49 +137,22 @@ xyz = SubTupleHolder(sub, 10, 20, 30, (foo=111, bar=222))
 # "First argument of method whatever must be explicitly typed"
 @test_throws(LoadError, eval(Meta.parse("@method whatever(i) = i")))
 
-expr = quote
-    abstract type AbstractX <: AbstractClass end
-    struct X{} <: AbstractX
-        function X()
-            #= /Users/rjp/.julia/dev/Classes/src/Classes.jl:136 =#
-            new()
-        end
-        function X(_self::T) where T <: AbstractX
-            _self
-        end
-    end
-    Classes.superclass(::Type{X}) = begin
-            Class
-        end
-    X
+@class Parameterized{T1 <: Foo, T2 <: Foo} begin
+    one::T1
+    two::T2
 end
 
-expected1 = striplines(expr)
-emitted1  = striplines(Classes._defclass(:X, Class, false, nothing, []))
-
-@test string(expected1) == string(emitted1)
-
-expr = quote
-    abstract type AbstractX <: AbstractClass end
-    mutable struct X{NT <: NamedTuple} <: AbstractX
-        i::Int
-        j::Int
-        function X{NT}(i::Int, j::Int) where NT <: NamedTuple
-            new{NT}(i, j)
-        end
-        function X(_self::T, i::Int, j::Int) where {T <: AbstractX, NT <: NamedTuple}
-            _self.i = i
-            _self.j = j
-            _self
-        end
-    end
-    Classes.superclass(::Type{X}) = begin
-            Class
-        end
-    X
+@class ParameterizedSub{T3 <: TupleHolder, T4 <: TupleHolder} <: Parameterized begin
+    x::Float64
+    y::Float64
 end
 
-expected2 = striplines(expr)
-emitted2  = striplines(Classes._defclass(:X, Class, true, [:(NT <: NamedTuple)], [:(i::Int), :(j::Int)]))
+# TBD: add tests on these
 
-@test string(expected2) == string(emitted2)
+# Generated: needs work on parameterized types (T1, T2 are not defined)
+# - convert param names to gensyms to avoid collisions
+#
+# function (ParameterizedSub{T3, T4}(one::T1, two::T2, x::Float64, y::Float64; )::Any) where {T3 <: TupleHolder, T4 <: TupleHolder}
+#     #= /Users/rjp/.julia/packages/MacroTools/4AjBS/src/utils.jl:302 =#
+#     new{T3, T4}(one, two, x, y)
+# end
