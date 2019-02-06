@@ -67,8 +67,16 @@ end
 # If a symbol is already a gensym, extract the symbol and re-gensym with it
 regensym(s) = MacroTools.isgensym(s) ? gensym(Symbol(MacroTools.gensymname(s))) : gensym(s)
 
+_cache = nothing
+
 # Return info about a class in a named tuple
 function _class_info(::Type{T}) where {T <: AbstractClass}
+    global _cache
+    _cache === nothing && (_cache = Dict())
+    haskey(_cache, T) && return _cache[T]
+
+    # @info "_class_info($T)"
+
     typ = (typeof(T) === UnionAll ? Base.unwrap_unionall(T) : T)
 
     # note: must extract symbol from type to create required expression
@@ -79,7 +87,9 @@ function _class_info(::Type{T}) where {T <: AbstractClass}
     ivars = [_translate_ivar(d, iv) for iv in ivars]      # translate types to use gensyms
     wheres = [_translate_where(d, w) for w in wheres]
 
-    return (wheres=wheres, ivars=ivars, super=superclass(typ))
+    result = (wheres=wheres, ivars=ivars, super=superclass(typ))
+    _cache[T] = result
+    return result
 end
 
 """

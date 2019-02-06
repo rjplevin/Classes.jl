@@ -13,7 +13,7 @@ using Classes
 
    # Although Foo is immutable, subclasses might not be,
    # so it's still useful to define this method.
-   function Foo(self::absclass(Foo))
+   function Foo(self::AbstractFoo)
         self.foo = 0
     end
 end
@@ -28,7 +28,7 @@ end
     bar::Int
 
     # Mutable classes can use this pattern
-    function Bar(self::Union{Nothing, absclass(Bar)}=nothing)
+    function Bar(self::Union{Nothing, AbstractBar}=nothing)
         self = (self === nothing ? new() : self)
         superclass(Bar)(self)
         Bar(self, 0)
