@@ -5,7 +5,7 @@ using MacroTools
 using MacroTools:combinedef, combinestructdef
 using InteractiveUtils: subtypes
 
-export @class, @method, Class, AbstractClass, isclass, classof, superclass, superclasses, issubclass, subclasses, absclass
+export @class, Class, AbstractClass, isclass, classof, superclass, superclasses, issubclass, subclasses, absclass
 
 #
 # Functional interface to MacroTools' dict-based expression creation functions
@@ -316,33 +316,6 @@ macro class(elements...)
     # __module__ is a "hidden" arg passed to macros with the caller's Module
     expr = _defclass(cls, __module__.eval(supername), mutable, wheres, exprs)
     return esc(expr)
-end
-
-"""
-    @method(funcdef)
-
-Translates a function whose first argument is a concrete subclass of Class
-the same function but with type of the first argument changed to the abstract
-supertype of the class, thereby allowing it to be called on subclasses as well.
-"""
-macro method(funcdef)
-    parts = splitdef(funcdef)
-    name = parts[:name]
-    args = parts[:args]
-    whereparams = parts[:whereparams]
-
-    if ! @capture(args[1], arg1_::T_)
-        error("First argument of method $name must be explicitly typed")
-    end
-
-    type_symbol = gensym()  # avoids conflict with user's type params
-    abs_super = abs_symbol(T)
-
-    # Redefine the function to accept any first arg that's a subclass of abstype
-    parts[:whereparams] = (:($type_symbol <: $abs_super), whereparams...)
-    args[1] = :($arg1::$type_symbol)
-    expr = combinedef(parts)
-   return esc(expr)
 end
 
 end # module

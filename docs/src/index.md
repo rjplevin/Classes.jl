@@ -4,10 +4,11 @@ The key feature of the package is the management of an abstract type hierarchy t
 defines the subclass and superclass relationships desired of the the concrete types
 representing the classes. The concrete types defined for each class include all the
 fields defined in any declared superclass, plus the fields defined within the class
-declaration. The abstract type hierarchy allows methods defined for a class to be
-called on its subclasses, whose fields are a superset of those of its superclass.
+declaration. The abstract type hierarchy allows methods to be defined for a class
+that can also be called on its subclasses, whose fields are a superset of those of 
+its superclass.
 
-The `Classes.jl` package comprises two macros (`@class` and `@method`) and several 
+The `Classes.jl` package includes the macro, `@class`, and several 
 exported functions, described below.
 
 ## The @class macro
@@ -99,95 +100,59 @@ in several forms:
 
   Returns the abstract type associated with the concrete class `T`.
 
-## The @method macro
+## Defining methods on a class hierarchy
 
-As defined in this package, a "class method" is simply a function whose first argument is
-a type defined by `@class`. The `@method` macro uses the shadow abstract type hierarchy to 
-redefine the given function so that it applies to the given class as well as its subclasses.
-
-Thus the following `@method` invocation:
-
-```
-@method my_method(obj::Bar, other, stuff) = do_something(obj, other, stuff)
-```
-
-emits the following code:
-
-```
-my_method(obj::AbstractBar, other, stuff) = do_something(obj, other, args)
-```
-
-The only change is that the type of first argument is changed to the abstract supertype
-associated with the concrete type `Bar`, allowing subclasses of `Bar` -- whose
-abstract supertype would by a subtype of `AbstractBar` -- to use the method as well. Since 
+To define a function that operates on a class and its subclasses, specify the
+associated abstract type rather than the class name in the method signature. Since 
 the subclass contains a superset of the fields in the superclass, this works out fine.
-
 Subclasses can override a superclass method by redefining the method on the
 more specific class.
 
-Say we define the following method on class `Foo`:
+Example:
 
 ```julia
-@method get_foo(obj::Foo) = obj.foo
-```
+@class Foo begin
+    i::Int
+end
 
-This is equivalent to writing:
+@class Bar <: Foo begin
+    f::Float64
+end
 
-```julia
-get_foo(obj::AbstractFoo) = obj.foo
+compute(obj::AbstractFoo) = obj.i * obj.i
 ```
 
 Since `Bar <: AbstractBar <: AbstractFoo`,  the method also applies to instances of `Bar`.
 
 ```julia
-julia> f = Foo(1)
-Foo(1)
+julia> foo = Foo(5)
+Foo(5)
 
-julia> b = Bar(10, 11)
-Bar(10, 11)
+julia> compute(foo)
+25
 
-julia> get_foo(f)
-1
+julia> bar = Bar(4, 3.3)
+Bar(4, 3.3)
 
-julia> get_foo(b)
-10
+julia> compute(bar)
+16
 ```
 
-We can redefine `get_foo` for class `Bar` to override its inherited superclass definition:
+We can redefine `compute` for class `Bar` to override its inherited superclass definition.
+Note that we can use the type `AbstractBar`, which allows this method to be "inherited" by
+subclasses of `Bar`, or we can use `Bar` directly, in which case the method applies only to
+this concrete type.
 
 ```julia
-julia> @method get_foo(obj::Bar) = obj.foo * 2
-get_foo (generic function with 2 methods)
+julia> compute(obj::AbstractBar) = obj.i * obj.f
+compute (generic function with 2 methods)
 
-julia> get_foo(b)
-20
+julia> compute(bar)
+13.2
 ```
 
 Subclasses of `Bar` now inherit this new definition, rather than the one inherited from `Foo`,
 since the prior class is more specialized (further down in the shadow abstract type hierarchy).
-
-```julia
-julia> @class Baz <: Bar begin
-          baz::Int
-       end
-
-julia> z = Baz(100, 101, 102)
-Baz(100, 101, 102)
-
-julia> dump(z)
-Baz
-  foo: Int64 100
-  bar: Int64 101
-  baz: Int64 102
-  
-julia> get_foo(z)
-200
-```
-
-The user deals primarily with the concrete types; the abstract types are created and used mainly by 
-the `@class` and `@method` macros. However, methods can be defined directly using classes' abstract 
-types, allowing the use of classes and inheritance in arguments besides the first one, which is the 
-only one handled by this macro.
 
 ## Example
 
@@ -267,21 +232,4 @@ relationships, which exist outside the julia type system.
 ![Mimi component structure](figs/Classes.png)
 
 Each class as a corresponding "shadow" abstract supertype (of the same name surrounded by underscores) which 
-is a parent to all abstract supertypes of its subclasses. The subclasses of, say, `ComponentDef` are all 
-subtypes of `AbstractComponentDef`, thus methods defined as:
-
-```julia
-@method function foo(obj::ComponentDef)
-    ...
-end
-```
-
-are emitted as:
-
-```julia
-function foo(obj::T) where {T <: AbstractComponentDef}
-    ...
-end
-```
-
-This allows the `foo` method to be called on any subclass of `ComponentDef`.
+is a parent to all abstract supertypes of its subclasses.

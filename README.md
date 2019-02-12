@@ -30,7 +30,7 @@ All of these have downsides:
 * Neither of the packages I reviewed -- OOPMacro.jl and ConcreteAbstractions.jl -- combine the
   power and simplicity I was after, and neither has been updated in years.
 
-`Classes.jl` provides two macros, `@class` and `@method` that are simple wrappers around
+`Classes.jl` provides one macro, `@class`, which is a simple wrapper around
 existing Julia syntax. `Classes.jl` exploits the type Julia system to provide inheritance
 of methods while enabling shared structure without duplicative code.
 
@@ -114,19 +114,13 @@ subclass. `Classes.jl` offers no special handling of mutability: it is the user'
 responsibility to ensure that combinations of mutable and immutable classes and related 
 methods make sense.
 
-## The @method macro
+## Defining methods to operate on a class hierarchy 
 
-A "method" is a function whose first argument must be a type defined by `@class`.
-The `@method` macro uses the shadow abstract type hierarchy to redefine the given 
-function so that it applies to the given class as well as its subclasses.
+To define a function that operates on a class and its subclasses, specify the
+associated abstract type rather than the class name in the method signature.
 
-Thus the following `@method` invocation
-
-```julia
-@method my_method(obj::Bar, other, stuff) = do_something(obj, other, stuff)
-```
-
-emits essentially the following code:
+For example, give the class `Bar`, you can write a function that applies to
+`Bar` and its subclasses by specifying the type `AbstractBar`:
 
 ```julia
 my_method(obj::AbstractBar, other, stuff) = do_something(obj, other, args)
