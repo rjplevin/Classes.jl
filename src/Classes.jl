@@ -215,7 +215,8 @@ function _constructors(clsname, super, super_info, local_fields, all_fields, whe
         push!(inits, init_local)
     end
 
-    params = [clause.args[1] for clause in all_wheres]  # extract parameter names from where clauses
+    # extract parameter names from where clauses
+    params = [(clause isa Expr ? clause.args[1] : clause) for clause in all_wheres]
     has_params = length(params) != 0
 
     args = _argnames(all_fields)

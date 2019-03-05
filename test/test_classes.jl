@@ -45,10 +45,7 @@ end
     end
 end
 
-# emitted by class Foo
-# @method foo(obj::Foo) = obj.foo
-
-@method function sum(obj::Bar)
+function sum(obj::AbstractBar)
     return obj.foo + obj.bar
 end
 
@@ -63,7 +60,7 @@ z = Baz(100, 101, 102)
 @test fieldnames(Bar) == (:foo, :bar)
 @test fieldnames(Baz) == (:foo, :bar, :baz)
 
-@method foo(x::Foo) = x.foo
+foo(x::AbstractFoo) = x.foo
 
 @test foo(x) == 1
 @test foo(y) == 10
@@ -71,7 +68,7 @@ z = Baz(100, 101, 102)
 
 @test sum(y) == 21
 
-@method get_bar(x::Bar) = x.bar
+get_bar(x::AbstractBar) = x.bar
 
 @test get_bar(y) == 11
 @test get_bar(z) == 101
@@ -79,7 +76,7 @@ z = Baz(100, 101, 102)
 @test_throws Exception get_bar(x)
 
 # Mutable
-@method set_foo!(x::Foo, value) = (x.foo = value)
+set_foo!(x::AbstractFoo, value) = (x.foo = value)
 set_foo!(z, 1000)
 @test foo(z) == 1000
 
@@ -87,7 +84,7 @@ set_foo!(z, 1000)
 @test_throws Exception x.foo = 1000
 
 # test that where clause is amended properly
-@method zzz(obj::Foo, bar::T) where {T} = T
+zzz(obj::AbstractFoo, bar::T) where {T} = T
 
 @test zzz(x, :x) == Symbol
 @test zzz(y, 10.6) == Float64
@@ -133,10 +130,6 @@ sub = SubTupleHolder{NT}(z, nt)
 xyz = SubTupleHolder(sub, 10, 20, 30, (foo=111, bar=222))
 @test xyz.nt.foo == 111 && xyz.nt.bar == 222 && xyz.foo == 10
 
-# Test method structure)
-# "First argument of method whatever must be explicitly typed"
-@test_throws(LoadError, eval(Meta.parse("@method whatever(i) = i")))
-
 @class Parameterized{T1 <: Foo, T2 <: Foo} begin
     one::T1
     two::T2
@@ -146,6 +139,15 @@ end
     x::Float64
     y::Float64
 end
+
+# non-constrained struct type parameter
+@class mutable AbstractLog{T} begin
+    pos::Matrix{T}
+end
+
+obj = AbstractLog{Float64}([1. 2.; 3. 4.])
+
+@test obj.pos == [1. 2.; 3. 4.]
 
 # TBD: add tests on these
 
