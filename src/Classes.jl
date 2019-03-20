@@ -311,11 +311,10 @@ macro class(elements...)
         error("Unrecognized class name expression: `$name_expr`")
     end
 
-    # The explicit eval forces supername to be eval'd in calling environment
     supername = (supername === nothing ? :Class : supername)
 
     # __module__ is a "hidden" arg passed to macros with the caller's Module
-    expr = _defclass(cls, __module__.eval(supername), mutable, wheres, exprs)
+    expr = _defclass(cls, getproperty(__module__, supername), mutable, wheres, exprs)
     return esc(expr)
 end
 
