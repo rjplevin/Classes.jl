@@ -7,7 +7,7 @@ DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 
 [compat]
-julia = "1.0, 1.1"
+julia = "1"
 
 [extras]
 Suppressor = "fd094767-a336-5f1f-9728-57cf17d0bbfb"
