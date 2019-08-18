@@ -1,6 +1,6 @@
 name = "Classes"
 uuid = "1a9c1350-211b-5766-99cd-4544d885a0d1"
-version = "0.1.3-DEV"
+version = "1.0"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
