@@ -37,7 +37,7 @@ typename(t::TypeVar) = t.name
 
 
 # fieldnames(DataType)
-# (:name, :super, :parameters, :types, :names, :instance, :layout, :size, :ninitialized, :uid, :abstract, :mutable, :hasfreetypevars, 
+# (:name, :super, :parameters, :types, :names, :instance, :layout, :size, :ninitialized, :uid, :abstract, :mutable, :hasfreetypevars,
 # :isconcretetype, :isdispatchtuple, :isbitstype, :zeroinit, :isinlinealloc, Symbol("llvm::StructType"), Symbol("llvm::DIType"))
 #
 # if dtype.hasfreetypevars, dtype.types is like svec(XYZ<:ABC,...)
@@ -46,7 +46,7 @@ function _translate_ivar(d::Dict, ivar)
     if ! @capture(ivar, vname_::vtype_ | vname_)
         error("Expected field definition, got $ivar")
     end
-    
+
     if vtype === nothing
         return ivar    # no type, nothing to translate
     end
@@ -163,7 +163,7 @@ Compute the vector of subclasses for a given class.
 function subclasses(::Type{T}) where {T <: AbstractClass}
     # immediate supertype is "our" entry in the type hierarchy
     super = supertype(T)
-    
+
     # collect immediate subclasses
     subs = [classof(t) for t in subtypes(super) if isabstracttype(t)]
 
@@ -189,7 +189,9 @@ end
 # on the fields passed by _constructors().
 function _initializer(class, fields, wheres)
     args = _argnames(fields)
-    assigns = [:(_self.$arg = $arg) for arg in args]
+    # we use setfield!() to allow classes to override setproperty()
+    # assigns = [:(_self.$arg = $arg) for arg in args]
+    assigns = [:(setfield!(_self, $(QuoteNode(arg)), $arg)) for arg in args]
     T = gensym(class)
 
     funcdef = :(
@@ -224,12 +226,13 @@ function _constructors(clsname, super, super_info, local_fields, all_fields, whe
     dflt = emit_function(clsname, body, args=all_fields, params=params, wparams=all_wheres, rtype=clsname)
 
     methods = [dflt]
-    
+
     # Primarily for immutable classes, we emit a constructor that takes an instance
-    # of the direct superclass and copies values when creating a new object.    
+    # of the direct superclass and copies values when creating a new object.
     super_fields = super_info.ivars
     if length(super_fields) != 0
-        super_args = [:(_super.$arg) for arg in _argnames(super_fields)]
+        # super_args = [:(_super.$arg) for arg in _argnames(super_fields)]
+        super_args = [:(getfield(_super, $(QuoteNode(arg)))) for arg in _argnames(super_fields)]
         local_args = _argnames(local_fields)
         all_args = [super_args; local_args]
 
@@ -242,7 +245,7 @@ function _constructors(clsname, super, super_info, local_fields, all_fields, whe
     return methods, inits
 end
 
-function _defclass(clsname, supercls, mutable, wheres, exprs)   
+function _defclass(clsname, supercls, mutable, wheres, exprs)
     wheres   = (wheres === nothing ? [] : wheres)
     # @info "clsname:$clsname supercls:$supercls mutable:$mutable wheres:$wheres exprs:$exprs"
 
@@ -250,7 +253,7 @@ function _defclass(clsname, supercls, mutable, wheres, exprs)
     ctors  = Vector{Expr}()
     fields = Vector{Expr}()
     for ex in exprs
-        try 
+        try
             splitdef(ex)        # throws AssertionError if not a func def
             push!(ctors, ex)
         catch
@@ -305,7 +308,7 @@ macro class(elements...)
     cls = clsname = exprs = wheres = nothing
 
     @capture(definition, begin exprs__ end)
-    
+
     # allow for optional type params and supertype
     if ! (@capture(name_expr, ((cls_{wheres__} | cls_) <: supername_) | (cls_{wheres__} | cls_)) && cls isa Symbol)
         error("Unrecognized class name expression: `$name_expr`")
