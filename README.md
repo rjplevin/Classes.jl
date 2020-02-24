@@ -72,7 +72,7 @@ struct Foo{} <: AbstractFoo
     end
 
     function Foo(self::T, x::Int) where T <: AbstractFoo
-        self.x = x
+        setfield(self, :x, x)
         self
     end
 end
@@ -88,8 +88,8 @@ mutable struct Bar{} <: AbstractBar
     end
 
     function Bar(self::T, x::Int, bar::Int) where T <: AbstractBar
-        self.x = x
-        self.bar = bar
+        setfield(self, :x, x)
+        setfield(self, :bar, bar)
         self
     end
 end
