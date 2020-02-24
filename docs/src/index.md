@@ -5,18 +5,18 @@ defines the subclass and superclass relationships desired of the the concrete ty
 representing the classes. The concrete types defined for each class include all the
 fields defined in any declared superclass, plus the fields defined within the class
 declaration. The abstract type hierarchy allows methods to be defined for a class
-that can also be called on its subclasses, whose fields are a superset of those of 
+that can also be called on its subclasses, whose fields are a superset of those of
 its superclass.
 
-The `Classes.jl` package includes the macro, `@class`, and several 
+The `Classes.jl` package includes the macro, `@class`, and several
 exported functions, described below.
 
 ## The @class macro
 
-The `@class` macro does all the real work for this package. For each class (say, `MyClass`) created 
+The `@class` macro does all the real work for this package. For each class (say, `MyClass`) created
 via `@class`, the following code is emitted:
 
-* An abstract type created by prepending `Abstract` on the given class name (e.g., `AbstractMyClass`), 
+* An abstract type created by prepending `Abstract` on the given class name (e.g., `AbstractMyClass`),
   which is a subtype of the abstract type associated
   with a named superclass, if given, or `Classes.AbstractClass` if not specified.
 
@@ -33,7 +33,7 @@ each subclass if mutability is required.
 
 ### Functions emitted by the @class macro
 
-The `@class` macro emits 
+The `@class` macro emits
 
 #### Constructors
 
@@ -62,14 +62,14 @@ in several forms:
 * "Superclass copy" initializer
 
   Provided primarily to support immutable classes (but available to mutable classes as well),
-  this initializer takes as arguments all locally-defined fields plus an instance of the 
+  this initializer takes as arguments all locally-defined fields plus an instance of the
   immediate superclass of the present class, from which values are copied into a call to
   `new` on the present class.
 
 #### Reflection methods
 
 * `isclass(T)`
-   
+
    Return `true` if `T` is a concrete subclass of `AbstractClass`, or is `Class`, which is abstract.
    Returns `false` otherwise.
 
@@ -103,7 +103,7 @@ in several forms:
 ## Defining methods on a class hierarchy
 
 To define a function that operates on a class and its subclasses, specify the
-associated abstract type rather than the class name in the method signature. Since 
+associated abstract type rather than the class name in the method signature. Since
 the subclass contains a superset of the fields in the superclass, this works out fine.
 Subclasses can override a superclass method by redefining the method on the
 more specific class.
@@ -167,7 +167,7 @@ using Classes
    # Although Foo is immutable, subclasses might not be,
    # so it's still useful to define this method.
    function Foo(self::AbstractFoo)
-        self.foo = 0
+        setfield!(self, :foo, 0)
     end
 end
 
@@ -217,19 +217,19 @@ Bar(foo::Int64, bar::Int64)
 Bar(self::T, bar::Int64) where T<:AbstractBar
 
 # all fields initializer
-Bar(self::T, foo::Int64, bar::Int64) where T<:AbstractBar 
+Bar(self::T, foo::Int64, bar::Int64) where T<:AbstractBar
 
-#  Superclass-copy initializer 
+#  Superclass-copy initializer
 Bar(bar::Int64, s::Foo)
 ```
 
 ## Example from Mimi
 
-The following diagram shows the relationship between the concrete structs and abstract types create by 
-the `@class` macro. Solid lines indicate subtype relationships; dotted lines indicate subclass 
-relationships, which exist outside the julia type system.
+The following diagram shows the relationship between the concrete structs and abstract types
+create by the `@class` macro. Solid lines indicate subtype relationships; dotted lines
+indicate subclass relationships, which exist outside the julia type system.
 
 ![Mimi component structure](figs/Classes.png)
 
-Each class as a corresponding "shadow" abstract supertype (of the same name surrounded by underscores) which 
-is a parent to all abstract supertypes of its subclasses.
+Each class as a corresponding "shadow" abstract supertype (of the same name surrounded by
+underscores) which is a parent to all abstract supertypes of its subclasses.
