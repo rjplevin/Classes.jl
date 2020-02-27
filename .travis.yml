@@ -2,9 +2,13 @@ language: julia
 os:
   - linux
   - osx
+  - windows
 julia:
+  - 1.0
   - 1.1
   - 1.2
+  - 1.3
+  - 1.4
   - nightly
 notifications:
   email: false
@@ -15,5 +19,4 @@ branches:
 matrix:
   allow_failures:
   - julia: nightly
-after_success:
-  - julia -e 'using Pkg; cd(Pkg.dir("Classes")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+codecov: true
