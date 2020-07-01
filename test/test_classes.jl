@@ -167,3 +167,11 @@ obj = AbstractLog{Float64}([1. 2.; 3. 4.])
 #     #= /Users/rjp/.julia/packages/MacroTools/4AjBS/src/utils.jl:302 =#
 #     new{T3, T4}(one, two, x, y)
 # end
+
+# x is a typeless field
+@class Cat begin
+    x
+end
+
+@test Cat(1).x == 1
+@test Cat("a").x == "a"
