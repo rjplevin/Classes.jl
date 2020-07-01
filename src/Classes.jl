@@ -242,6 +242,33 @@ function _constructors(clsname, super, super_info, local_fields, all_fields, whe
         push!(methods, immut_init)
     end
 
+    # super constructor inheritance: when the class and superclass have the same fields,
+    # the constructors of the superclass are valid for the subclass,
+    # so we make an outter constructor for subclass pointing to those.
+    if super !== Class && length(local_fields) === 0
+        if length(super_fields) != 0
+            argnames = _argnames(super_fields)
+            guide_constructor = quote
+                function $clsname(arguments...)
+                    super_inctance = $(super)(arguments...) # super's extra constructor
+                    # setting subclass fields
+                    subcls_fields = [getfield(super_inctance, arg) for arg in $argnames]
+                    return $clsname(subcls_fields...)
+                end
+            end
+        else
+            # call the super constructor that may do some stuff
+            guide_constructor = quote
+                function $clsname(arguments...)
+                    $(super)(arguments...) # does something
+                    return $clsname()
+                end
+            end
+        end
+        push!(inits, guide_constructor)
+    end
+    # TODO add parameters guide as well
+
     return methods, inits
 end
 
