@@ -175,3 +175,19 @@ end
 
 @test Cat(1).x == 1
 @test Cat("a").x == "a"
+
+# super constructor inheritance
+@class Animal begin
+    x
+    Animal(x, y) = new(x)
+end
+
+function Animal(x, y, z)
+    return Animal(x+y+z)
+end
+
+@class Dog <: Animal begin
+end
+
+@test Dog(1,2).x == 1
+@test Dog(1,2,3).x == 6
