@@ -50,7 +50,7 @@ Given these two class definitions (note that `Class` is defined in `Classes.jl`)
 ```julia
 using Classes
 
-@class Foo <: Class begin       # or, equivalently, @class Foo begin ... end
+@class Foo begin       # or, equivalently, @class Foo <: Class begin ... end
    foo::Int
 end
 
