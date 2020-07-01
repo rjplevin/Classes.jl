@@ -253,11 +253,11 @@ function _defclass(clsname, supercls, mutable, wheres, exprs)
     ctors  = Vector{Expr}()
     fields = Vector{Union{Expr, Symbol}}()
     for ex in exprs
-        try
+        if ex isa Symbol || (ex isa Expr && ex.head === :(::) && ex.args[1] isa Symbol )  # x or x::Int64
+            push!(fields, ex)
+        else
             splitdef(ex)        # throws AssertionError if not a func def
             push!(ctors, ex)
-        catch
-            push!(fields, ex)
         end
     end
 
