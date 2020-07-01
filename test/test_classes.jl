@@ -6,6 +6,11 @@ using Classes
 @test isclass(AbstractClass) == false       # not concrete
 @test isclass(Int) == false                 # not <: AbstractClass
 
+"""
+  Foo
+
+A test class
+"""
 @class Foo begin
    foo::Int
 
@@ -20,6 +25,10 @@ end
 
 @test classof(AbstractFoo) == Foo
 @test classof(Foo) == Foo
+@test string(@doc(Foo)) == """Foo
+
+A test class
+"""
 
 @test superclass(Foo) == Class
 @test_throws Exception superclass(AbstractFoo)
