@@ -251,7 +251,7 @@ function _defclass(clsname, supercls, mutable, wheres, exprs)
 
     # partition expressions into constructors and field defs
     ctors  = Vector{Expr}()
-    fields = Vector{Expr}()
+    fields = Vector{Union{Expr, Symbol}}()
     for ex in exprs
         try
             splitdef(ex)        # throws AssertionError if not a func def
