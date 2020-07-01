@@ -279,7 +279,7 @@ function _defclass(clsname, supercls, mutable, wheres, exprs)
 
     result = quote
         abstract type $abs_class <: $abs_super end
-        $struct_def
+        Base.@__doc__($struct_def)
         $(outer...)
         Classes.superclass(::Type{$clsname}) = $supercls
         $clsname    # return the struct type
