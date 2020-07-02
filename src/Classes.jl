@@ -204,6 +204,62 @@ function _initializer(class, fields, wheres)
     return funcdef
 end
 
+function super_constructor_inheritance(clsname, super, super_fields, has_params, params)
+    guide_constructor = Expr[]
+    super_fields_len = length(super_fields)
+    # new{T...} is not supported on Julia 1.0.5
+    if has_params
+        function_return = :(new{(getfield(typeof(super_inctance), :parameters)...)})
+    else
+        function_return = :(new)
+    end
+    # paramsless constructor
+    if super_fields_len != 0
+        argnames = _argnames(super_fields)
+        paramsless_guide_constructor = quote
+            function $clsname(arguments...)
+                super_inctance = $super(arguments...)    # super's extra constructor
+                # setting subclass fields
+                subcls_fields = getfield.(Ref(super_inctance), $argnames)
+                return $function_return(subcls_fields...)
+            end
+        end
+    else
+        # call the super constructor that may do some stuff
+        paramsless_guide_constructor = quote
+            function $clsname(arguments...)
+                super_inctance = $super(arguments...) # does something
+                return $function_return()
+            end
+        end
+    end
+    push!(guide_constructor, paramsless_guide_constructor)
+    # paramsful constructor
+    if has_params
+        if super_fields_len != 0
+            argnames = _argnames(super_fields)
+            paramsful_guide_constructor = quote
+                function $clsname{$(params...)}(arguments...) where {$(params...)}
+                    super_inctance = $super{$(params...)}(arguments...)    # super's extra constructor
+                    # setting subclass fields
+                    subcls_fields = getfield.(Ref(super_inctance), $argnames)
+                    return $function_return(subcls_fields...)
+                end
+            end
+        else
+            # call the super constructor that may do some stuff
+            paramsful_guide_constructor = quote
+                function $clsname{$(params...)}(arguments...) where {$(params...)}
+                    super_inctance = $super{$(params...)}(arguments...) # does something
+                    return $function_return()
+                end
+            end
+        end
+        push!(guide_constructor, paramsful_guide_constructor)
+    end
+    return guide_constructor
+end
+
 function _constructors(clsname, super, super_info, local_fields, all_fields, wheres)
     all_wheres = [super_info.wheres; wheres]
     init_all = _initializer(clsname, all_fields, all_wheres)
@@ -240,6 +296,14 @@ function _constructors(clsname, super, super_info, local_fields, all_fields, whe
         args = [:(_super::$super); local_fields]
         immut_init = emit_function(clsname, body; args=args, params=params, wparams=all_wheres, rtype=clsname)
         push!(methods, immut_init)
+    end
+
+    # super constructor inheritance: when the class and superclass have the same fields,
+    # the constructors of the superclass are valid for the subclass,
+    # so we make an outter constructor for subclass pointing to those.
+    if super !== Class && length(local_fields) === 0
+        guide_constructor = super_constructor_inheritance(clsname, super, super_fields, has_params, params)
+        push!(methods, guide_constructor...)
     end
 
     return methods, inits

@@ -1,5 +1,6 @@
 using Test
 using Classes
+using Suppressor
 
 @test superclass(Class) === nothing
 
@@ -175,3 +176,80 @@ end
 
 @test Cat(1).x == 1
 @test Cat("a").x == "a"
+
+## super constructor inheritance
+@class Animal begin
+    x
+    Animal(x, y) = new(x)
+end
+
+function Animal(x, y, z)
+    return Animal(x+y+z)
+end
+
+@class Dog <: Animal begin
+end
+
+@test Dog(1,2).x == 1
+@test Dog(1,2,3).x == 6
+
+
+# fieldless class
+@class Animal2 begin
+end
+
+test_num = 1
+function Animal2(x, y)
+    println("Animal is instantiated")
+    return Animal2()
+end
+
+@class Dog2 <: Animal2 begin
+end
+
+@test @capture_out( Dog2(1,2) ) == "Animal is instantiated\n"
+
+# super constructor inheritance with parameters
+@class Animal3{T} begin
+    x::T
+    Animal3(x, y) = new{typeof(x)}(x)
+    Animal3{T}(x, y) where {T} = new{T}(x)
+end
+
+function Animal3(x, y, z)
+    return Animal3(x*y, z)
+end
+
+function Animal3{T}(x, y, z) where {T}
+    return Animal3{T}(x*y, z)
+end
+
+@class Dog3 <: Animal3 begin
+end
+
+@test Dog3(1,2).x == 1
+@test Dog3{Int64}(1,2).x == 1
+@test Dog3(1,2,3).x == 2
+@test Dog3{Int64}(1,2,3).x == 2
+
+# fieldless class with parameters
+@class Animal4{T} begin
+    Animal4(x, y) = new{typeof(x)}()
+    Animal4{T}(x, y) where {T} = new{T}()
+end
+
+function Animal4(x, y, z)
+    return Animal4(x*y, z)
+end
+
+function Animal4{T}(x, y, z) where {T}
+    return Animal4{T}(x*y, z)
+end
+
+@class Dog4 <: Animal4 begin
+end
+
+@test typeof(Dog4(1,2)) == Dog4{Int64}
+@test typeof(Dog4{Float64}(1,2)) == Dog4{Float64}
+@test typeof(Dog4(1,2,3)) ==  Dog4{Int64}
+@test typeof(Dog4{Int32}(1,2,3)) == Dog4{Int32}
