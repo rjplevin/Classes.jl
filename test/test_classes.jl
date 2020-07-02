@@ -208,3 +208,27 @@ end
 end
 
 @test @capture_out( Dog2(1,2) ) == "Animal is instantiated\n"
+
+# super constructor inheritance with parameters
+@class Animal3{T} begin
+    x::T
+    Animal3(x, y) = new{typeof(x)}(x)
+    Animal3{T}(x, y) where {T} = new{T}(x)
+end
+
+function Animal3(x, y, z)
+    return Animal3(x*y, z)
+end
+
+function Animal3{T}(x, y, z) where {T}
+    return Animal3{T}(x*y, z)
+end
+
+@class Dog3 <: Animal3 begin
+end
+
+@test Dog3(1,2).x == 1
+@test Dog3{Int64}(1,2).x == 1
+@test Dog3(1,2,3).x == 2
+@test Dog3{Int64}(1,2,3).x == 2
+
