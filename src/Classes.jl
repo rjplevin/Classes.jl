@@ -208,7 +208,7 @@ function super_constructor_inheritance(clsname, super, super_fields, has_params,
     guide_constructor = Expr[]
     super_fields_len = length(super_fields)
     if has_params
-        function_return = :(new{(collect(getfield(typeof(super_inctance), :parameters))...)})
+        function_return = :(new{(getfield(typeof(super_inctance), :parameters)...)})
     else
         function_return = :(new)
     end
@@ -219,7 +219,7 @@ function super_constructor_inheritance(clsname, super, super_fields, has_params,
             function $clsname(arguments...)
                 super_inctance = $super(arguments...)    # super's extra constructor
                 # setting subclass fields
-                subcls_fields = [getfield(super_inctance, arg) for arg in $argnames]
+                subcls_fields = (getfield(super_inctance, arg) for arg in $argnames)
                 return $function_return(subcls_fields...)
             end
         end
@@ -241,7 +241,7 @@ function super_constructor_inheritance(clsname, super, super_fields, has_params,
                 function $clsname{$(params...)}(arguments...) where {$(params...)}
                     super_inctance = $super{$(params...)}(arguments...)    # super's extra constructor
                     # setting subclass fields
-                    subcls_fields = [getfield(super_inctance, arg) for arg in $argnames]
+                    subcls_fields = (getfield(super_inctance, arg) for arg in $argnames)
                     return $function_return(subcls_fields...)
                 end
             end
