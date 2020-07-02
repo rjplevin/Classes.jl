@@ -232,3 +232,24 @@ end
 @test Dog3(1,2,3).x == 2
 @test Dog3{Int64}(1,2,3).x == 2
 
+# fieldless class with parameters
+@class Animal4{T} begin
+    Animal4(x, y) = new{typeof(x)}()
+    Animal4{T}(x, y) where {T} = new{T}()
+end
+
+function Animal4(x, y, z)
+    return Animal4(x*y, z)
+end
+
+function Animal4{T}(x, y, z) where {T}
+    return Animal4{T}(x*y, z)
+end
+
+@class Dog4 <: Animal4 begin
+end
+
+@test typeof(Dog4(1,2)) == Dog4{Int64}
+@test typeof(Dog4{Float64}(1,2)) == Dog4{Float64}
+@test typeof(Dog4(1,2,3)) ==  Dog4{Int64}
+@test typeof(Dog4{Int32}(1,2,3)) == Dog4{Int32}
