@@ -207,6 +207,7 @@ end
 function super_constructor_inheritance(clsname, super, super_fields, has_params, params)
     guide_constructor = Expr[]
     super_fields_len = length(super_fields)
+    # new{T...} is not supported on Julia 1.0.5
     if has_params
         function_return = :(new{(getfield(typeof(super_inctance), :parameters)...)})
     else
