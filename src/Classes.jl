@@ -204,6 +204,61 @@ function _initializer(class, fields, wheres)
     return funcdef
 end
 
+function super_constructor_inheritance(clsname, super, super_fields, has_params, params)
+    guide_constructor = Expr[]
+    super_fields_len = length(super_fields)
+    if has_params
+        function_return = :(new{(collect(getfield(typeof(super_inctance), :parameters))...)})
+    else
+        function_return = :(new)
+    end
+    # paramsless constructor
+    if super_fields_len != 0
+        argnames = _argnames(super_fields)
+        paramsless_guide_constructor = quote
+            function $clsname(arguments...)
+                super_inctance = $super(arguments...)    # super's extra constructor
+                # setting subclass fields
+                subcls_fields = [getfield(super_inctance, arg) for arg in $argnames]
+                return $function_return(subcls_fields...)
+            end
+        end
+    else
+        # call the super constructor that may do some stuff
+        paramsless_guide_constructor = quote
+            function $clsname(arguments...)
+                super_inctance = $super(arguments...) # does something
+                return $function_return()
+            end
+        end
+    end
+    push!(guide_constructor, paramsless_guide_constructor)
+    # paramsful constructor
+    if has_params
+        if super_fields_len != 0
+            argnames = _argnames(super_fields)
+            paramsful_guide_constructor = quote
+                function $clsname{$(params...)}(arguments...) where {$(params...)}
+                    super_inctance = $super{$(params...)}(arguments...)    # super's extra constructor
+                    # setting subclass fields
+                    subcls_fields = [getfield(super_inctance, arg) for arg in $argnames]
+                    return $function_return(subcls_fields...)
+                end
+            end
+        else
+            # call the super constructor that may do some stuff
+            paramsful_guide_constructor = quote
+                function $clsname{$(params...)}(arguments...) where {$(params...)}
+                    super_inctance = $super{$(params...)}(arguments...) # does something
+                    return $function_return()
+                end
+            end
+        end
+        push!(guide_constructor, paramsful_guide_constructor)
+    end
+    return guide_constructor
+end
+
 function _constructors(clsname, super, super_info, local_fields, all_fields, wheres)
     all_wheres = [super_info.wheres; wheres]
     init_all = _initializer(clsname, all_fields, all_wheres)
@@ -246,28 +301,9 @@ function _constructors(clsname, super, super_info, local_fields, all_fields, whe
     # the constructors of the superclass are valid for the subclass,
     # so we make an outter constructor for subclass pointing to those.
     if super !== Class && length(local_fields) === 0
-        if length(super_fields) != 0
-            argnames = _argnames(super_fields)
-            guide_constructor = quote
-                function $clsname(arguments...)
-                    super_inctance = $(super)(arguments...) # super's extra constructor
-                    # setting subclass fields
-                    subcls_fields = [getfield(super_inctance, arg) for arg in $argnames]
-                    return $clsname(subcls_fields...)
-                end
-            end
-        else
-            # call the super constructor that may do some stuff
-            guide_constructor = quote
-                function $clsname(arguments...)
-                    $(super)(arguments...) # does something
-                    return $clsname()
-                end
-            end
-        end
-        push!(inits, guide_constructor)
+        guide_constructor = super_constructor_inheritance(clsname, super, super_fields, has_params, params)
+        push!(methods, guide_constructor...)
     end
-    # TODO add parameters guide as well
 
     return methods, inits
 end
