@@ -1,5 +1,5 @@
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://github.com/rjplevin/Classes.jl/blob/master/docs/src/index.md)
 [![Build Status](https://travis-ci.org/rjplevin/Classes.jl.svg?branch=master)](https://travis-ci.org/rjplevin/Classes.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/github/rjplevin/Classes.jl?branch=master&?svg=true)](https://ci.appveyor.com/project/rjplevin/classes-jl/branch/master)
 [![codecov](https://codecov.io/gh/rjplevin/Classes.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/rjplevin/Classes.jl)
 [![Coverage Status](https://img.shields.io/coveralls/github/rjplevin/Classes.jl/master.svg)](https://coveralls.io/github/rjplevin/Classes.jl?branch=master)
 
@@ -13,18 +13,18 @@ If multiple types need to share structure, you have several options:
 1. Write out the common fields manually.
 1. Write a macro that emits the common fields. This is better than the manual approach
    since it creates a single point of modification.
-1. Use composition instead of inheritance: create a new type that holds the common fields 
+1. Use composition instead of inheritance: create a new type that holds the common fields
    and include an instance of this in each of the structs that needs the common fields.
 1. Use an existing package that provides the required features.
 
 All of these have downsides:
 
-* As suggested above, writing out the duplicate fields manually creates maintenance challenges 
+* As suggested above, writing out the duplicate fields manually creates maintenance challenges
   since you no longer have a single  point of modification.  
 * Using a macro to emit the common fields solves this problem, but there's still
   no convient way to identify the relatedness of the structs that contain these common fields.
-* Composition -- the typically recommended julian approach -- generally involves creating 
-  functions to delegate from the outer type to the inner type. This can become tedious if 
+* Composition -- the typically recommended julian approach -- generally involves creating
+  functions to delegate from the outer type to the inner type. This can become tedious if
   you have multiple levels of nesting. Of course you
   can write forwarding macros to handle this, but this also becomes repetitive.
 * Neither of the packages I reviewed -- OOPMacro.jl and ConcreteAbstractions.jl -- combine the
@@ -41,8 +41,8 @@ generated abstract types. The `@class` macro saves the field definitions for eac
 so that subclasses receive all their parent's fields in addition to those defined locally.
 Inner constructors are passed through unchanged.
 
-`Classes.jl` constructs a "shadow" abstract type hierarchy to represent the relationships among 
-the defined classes. For each class `Foo`, the abstract type `AbstractFoo` is defined, where `AbstractFoo` 
+`Classes.jl` constructs a "shadow" abstract type hierarchy to represent the relationships among
+the defined classes. For each class `Foo`, the abstract type `AbstractFoo` is defined, where `AbstractFoo`
 is a subtype of the abstract type associated with the superclass of `Foo`.
 
 Given these two class definitions (note that `Class` is defined in `Classes.jl`):
@@ -59,7 +59,11 @@ end
 end
 ```
 
-The following julia code is emitted:
+The following julia code is emitted for this example:
+
+<details>
+
+<summary>Macroexpand</summary>
 
 ```julia
 abstract type AbstractFoo <: AbstractClass end
@@ -95,7 +99,10 @@ mutable struct Bar{} <: AbstractBar
 end
 ```
 
-Note that the second emitted constructor is parameterized such that it can be called 
+</details>
+<br/>
+
+Note that the second emitted constructor is parameterized such that it can be called
 on the class's subclasses to set fields defined by the class. Of course, this is
 callable only on a mutable struct.
 
@@ -110,11 +117,11 @@ Classes.issubclass(::Type{Bar}, ::Type{Foo}) = true
 
 Adding the `mutable` keyword after `@class` results in a mutable struct, but this
 feature is not inherited by subclasses; it must be specified (if desired) for each
-subclass. `Classes.jl` offers no special handling of mutability: it is the user's 
-responsibility to ensure that combinations of mutable and immutable classes and related 
+subclass. `Classes.jl` offers no special handling of mutability: it is the user's
+responsibility to ensure that combinations of mutable and immutable classes and related
 methods make sense.
 
-## Defining methods to operate on a class hierarchy 
+## Defining methods to operate on a class hierarchy
 
 To define a function that operates on a class and its subclasses, specify the
 associated abstract type rather than the class name in the method signature.
