@@ -13,4 +13,4 @@ notifications:
     on_build_status_changed: false
 
 install:
-  - cmd: Appveyor is disabled
+  - cmd: echo Appveyor is disabled
