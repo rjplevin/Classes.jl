@@ -1,5 +1,6 @@
 using Test
 using Classes
+using Suppressor
 
 @test superclass(Class) === nothing
 
@@ -176,7 +177,7 @@ end
 @test Cat(1).x == 1
 @test Cat("a").x == "a"
 
-# super constructor inheritance
+## super constructor inheritance
 @class Animal begin
     x
     Animal(x, y) = new(x)
@@ -191,3 +192,19 @@ end
 
 @test Dog(1,2).x == 1
 @test Dog(1,2,3).x == 6
+
+
+# fieldless class
+@class Animal2 begin
+end
+
+test_num = 1
+function Animal2(x, y)
+    println("Animal is instantiated")
+    return Animal2()
+end
+
+@class Dog2 <: Animal2 begin
+end
+
+@test @capture_out( Dog2(1,2) ) == "Animal is instantiated\n"
