@@ -219,7 +219,7 @@ function super_constructor_inheritance(clsname, super, super_fields, has_params,
             function $clsname(arguments...)
                 super_inctance = $super(arguments...)    # super's extra constructor
                 # setting subclass fields
-                subcls_fields = (getfield(super_inctance, arg) for arg in $argnames)
+                subcls_fields = getfield.(Ref(super_inctance), $argnames)
                 return $function_return(subcls_fields...)
             end
         end
@@ -241,7 +241,7 @@ function super_constructor_inheritance(clsname, super, super_fields, has_params,
                 function $clsname{$(params...)}(arguments...) where {$(params...)}
                     super_inctance = $super{$(params...)}(arguments...)    # super's extra constructor
                     # setting subclass fields
-                    subcls_fields = (getfield(super_inctance, arg) for arg in $argnames)
+                    subcls_fields = getfield.(Ref(super_inctance), $argnames)
                     return $function_return(subcls_fields...)
                 end
             end
