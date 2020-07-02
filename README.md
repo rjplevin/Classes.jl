@@ -39,7 +39,7 @@ of methods while enabling shared structure without duplicative code.
 A "class" is a concrete type with a defined relationship to a hierarchy of automatically
 generated abstract types. The `@class` macro saves the field definitions for each class
 so that subclasses receive all their parent's fields in addition to those defined locally.
-Inner constructors are passed through unchanged.
+Inner constructors are passed through unchanged. `@class` supports parametric classes (similar to parametric structs) and also super class constructor inheritance when the subclass does not have additional fields.
 
 `Classes.jl` constructs a "shadow" abstract type hierarchy to represent the relationships among
 the defined classes. For each class `Foo`, the abstract type `AbstractFoo` is defined, where `AbstractFoo`
@@ -132,5 +132,27 @@ For example, give the class `Bar`, you can write a function that applies to
 ```julia
 my_method(obj::AbstractBar, other, stuff) = do_something(obj, other, args)
 ```
+
+## Super constructor inheritance
+When a subclass does not have any additional fields you can call its super constructors:
+```julia
+## super constructor inheritance
+@class Animal begin
+    x
+    Animal(x, y) = new(x)
+end
+
+function Animal(x, y, z)
+    return Animal(x+y+z)
+end
+
+@class Dog <: Animal begin
+end
+
+Dog(1,2) # 1
+Dog(1,2,3) # 6
+```
+
+
 
 See the online [documentation](https://github.com/rjplevin/Classes.jl/blob/master/docs/src/index.md) for further details.
